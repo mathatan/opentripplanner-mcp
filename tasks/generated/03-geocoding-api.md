@@ -1,8 +1,23 @@
 ---
-# NOTE: This is a TASK specification, not the final documentation.
+title: Geocoding API Task Spec
+slug: geocoding-api
+version: 1.0.0
+generate: true
+finalArtifact: docs/geocoding-api.md
+dependsOn:
+	- routing-api
+sources:
+	- https://digitransit.fi/en/developers/apis/3-geocoding-api/
+otpTopics: []
 ---
 
-# TASK: Geocoding API
+<!-- EXECUTION DIRECTIVE: Runner MUST emit docs/geocoding-api.md with full outline. -->
+
+## NOTE: This is a TASK specification, not the final documentation
+
+---
+
+## TASK: Geocoding API
 
 ## 0. Purpose
 

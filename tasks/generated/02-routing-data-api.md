@@ -1,8 +1,25 @@
 ---
-# NOTE: This is a TASK specification, not the final documentation.
+title: Routing Data API Task Spec
+slug: routing-data-api
+version: 1.0.0
+generate: true
+finalArtifact: docs/routing-data-api.md
+dependsOn: []
+sources:
+	- https://digitransit.fi/en/developers/apis/2-routing-data-api/
+otpTopics:
+	- GraphBuildPipeline
+	- RouterConfig
+	- FeatureFlags
 ---
 
-# TASK: Routing Data API
+<!-- EXECUTION DIRECTIVE: Runner MUST produce final docs at docs/routing-data-api.md using outline. -->
+
+## NOTE: This is a TASK specification, not the final documentation
+
+---
+
+## TASK: Routing Data API
 
 ## 0. Purpose
 

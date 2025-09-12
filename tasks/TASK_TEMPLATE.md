@@ -1,3 +1,15 @@
+---
+# REQUIRED FRONT-MATTER KEYS
+# title: <Human readable task title>
+# slug: <kebab-case-identifier>
+# version: 1.0.0
+# generate: true               # MUST be true for runner to emit final doc
+# finalArtifact: docs/<slug>.md # Relative path of final documentation file to WRITE/OVERWRITE
+# dependsOn: []                 # Optional array of other task slugs
+# sources: []                   # Canonical source URLs
+# otpTopics: []                 # OTP topic identifiers required
+---
+
 # TASK: <REPLACE_WITH_TASK_TITLE>
 
 ## 0. Purpose
@@ -15,7 +27,24 @@ List canonical URLs (Digitransit pages, architecture pages, registration, change
 
 ## 3. Deliverables (Structure Blueprint)
 
-Define the sections the future generated documentation MUST contain. Integrate meta topics (Auth & Registration, Terms/Policies, FAQ/Troubleshooting, Changes/Deprecations, Glossary seeds) WITHIN the single task’s structure instead of separate task files. Recommended sections: Overview; Concepts; Endpoints; Authentication & Keys (integrated); Parameters; Usage Examples; Performance & Rate; Error & Edge Cases; Integrated Policy & Terms Notes; Change & Deprecation Notes; Testing & Validation; References; Changelog; Glossary Seeds.
+Define the sections the future generated documentation MUST contain. Integrate meta topics (Auth & Registration, Terms/Policies, FAQ/Troubleshooting, Changes/Deprecations, Glossary seeds) WITHIN the single task’s structure instead of separate task files. Recommended sections (and expected presence in final artifact `finalArtifact`):
+
+- Overview
+- Concepts (Domain Model)
+- Endpoints / Interfaces
+- Authentication & Keys (integrated; no standalone auth doc)
+- Parameters (merged OTP + Digitransit)
+- Usage Examples
+- Performance & Rate Guidance
+- Error & Edge Cases
+- Integrated Policy & Terms Notes
+- Change & Deprecation Notes
+- Testing & Validation
+- References
+- Changelog
+- Glossary Seeds
+
+Any omission MUST be justified with `NOTE: MISSING DATA` inside the emitted final documentation.
 
 ## 4. Quality Criteria
 
@@ -23,7 +52,7 @@ Enumerate acceptance checks (sources re-fetched, parameter origins cited, minimu
 
 ## 5. Detailed Steps (Todo Blueprint)
 
-Ordered actionable steps the execution agent will materialize (fetch sources, retrieve OTP topics, outline scaffold, build tables, draft example placeholders, performance notes, error matrix, cross-links, quality review, finalize summary).
+Ordered actionable steps the execution agent will materialize (fetch sources, retrieve OTP topics, outline scaffold, build tables, draft example placeholders, performance notes, error matrix, cross-links, quality review, finalize summary). These steps will be turned into a live todo list by the runner. The runner MUST NOT stop after summary— it MUST also write the fully synthesized documentation file at `finalArtifact`.
 
 ## 6. Parameter Table Framework (If Applicable)
 
@@ -47,8 +76,44 @@ Seed with 1.0.0 creation row. Future edits increment patch/minor/major.
 
 ## 11. Escalation & Missing Data Policy
 
-State how unresolved data is marked (NOTE: MISSING DATA) and criteria for deferral.
+State how unresolved data is marked (NOTE: MISSING DATA) and criteria for deferral. Each unresolved item becomes a memory key `missing:<slug>:<descriptor>`.
+
+## 12. Execution Directive (MANDATORY)
+
+The documentation runner MUST, after completing quality checks, generate/overwrite the file indicated by `finalArtifact` with the fully rendered documentation using ONLY validated context (sources & otpTopics). The task file itself remains a specification; the emitted artifact is consumer-facing. All placeholders in sections 6–8 must be replaced in the artifact; placeholders MAY remain in the task spec.
+
+### Final Artifact Minimum Structural Outline
+
+```markdown
+---
+title: <title>
+slug: <slug>
+version: <task version>
+generatedAt: <ISO8601>
+sourcesReferenced: [..]
+otpTopicsReferenced: [..]
+---
+
+# <Title>
+
+## Overview
+## Concepts
+## Endpoints
+## Authentication & Keys
+## Parameters
+## Usage Examples
+## Performance & Rate
+## Error & Edge Cases
+## Integrated Policy & Terms Notes
+## Change & Deprecation Notes
+## Testing & Validation
+## References
+## Changelog
+## Glossary Seeds
+```
+
+The runner MUST ensure this outline exists (sections may be empty only with explicit NOTE: MISSING DATA).
 
 ---
 
-Template version: 2.0.0
+Template version: 2.1.0

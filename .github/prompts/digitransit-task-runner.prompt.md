@@ -1,5 +1,5 @@
 ---
-description: Batch or single execution of Digitransit task specification files into validated documentation artifacts (CONSUME-ONLY; no network fetches)
+description: Batch or single execution of Digitransit task specification files into validated documentation artifacts (CONSUME-ONLY; no network fetches) with mandatory final artifact emission
 mode: agent
 tools:
     - manage_todo_list
@@ -14,7 +14,7 @@ inputs:
     - name: skipBatchSummary
       description: If true, suppress creation of BATCH_EXECUTION_SUMMARY (single-task style)
       required: false
-version: 1.1.1
+version: 1.2.0
 ---
 
 # Digitransit Documentation Task Runner (Custom Copilot Prompt File)
@@ -38,7 +38,7 @@ You are an autonomous documentation synthesis agent. Your mission: transform a t
 ## Inputs You Will Receive
 
 - Primary: `${input:tasks}` (one or more explicit paths or globs) OR a highlighted `${selection}` fallback if no input provided.
-- Each task file contains front-matter (title, slug, dependsOn, sources, otpTopics) plus content shells to populate.
+- Each task file contains front-matter (title, slug, version, generate, finalArtifact, dependsOn, sources, otpTopics) plus content shells to populate. Keys `generate` (boolean true) and `finalArtifact` (path) are REQUIRED; absence yields unmet quality criteria `MissingFrontMatterKey:<key>` and task failure.
 
 ## Tool Usage
 
@@ -46,15 +46,16 @@ Use `manage_todo_list` and `memory` to consume `.context-files` and memory entri
 
 ## Execution Phases (Strict Order)
 
-1. Initialization: parse front-matter; collect `sources`, `otpTopics`, `dependsOn`.
+1. Initialization: parse front-matter; collect `sources`, `otpTopics`, `dependsOn`; validate presence of `generate: true` and `finalArtifact`.
 2. Dependency Verification: ensure prerequisite task files exist (presence only).
 3. Todo Bootstrap: create todos for remaining phases.
 4. Context Load: for each `sources` URL locate memory entry (`source:<normalizedUrl>`) OR stable snapshot `.context-files/source--<slug>.yaml` (prefer `.min.yaml` if present); for each `otpTopics` locate memory `otpTopic:<topic>` OR snapshot `otp-topic--<topic-slug>.yaml`. Use only `.context-files` and memory entries first. If context is still missing and requirements cannot be fulfilled, attempt to fetch using available tools (e.g., Context7, source fetch, websearch). Record which are available vs missing.
 5. Gap Scan: analyze loaded and fetched context for required sections (parameters, examples, rate, errors); if context is still missing after fetch attempts, record missing descriptors.
-6. Synthesis: build parameter table, examples (GraphQL/MQTT) only from available context; any reference to missing material flagged. All context is now structured YAML, so parse and use all available details and specifications. Examples must be complete and match the source YAML.
-7. Quality Gate: validate completeness vs template; list unmet criteria.
-8. Execution Summary: append/update YAML block.
-9. Finalize: mark todos complete.
+6. Synthesis: build parameter table, examples (GraphQL/MQTT) only from available context; any reference to missing material flagged.
+7. Artifact Emission: write/overwrite the consumer-facing documentation markdown at `finalArtifact` path following structural outline (Overview .. Glossary Seeds) with artifact front-matter (title, slug, version, generatedAt, sourcesReferenced, otpTopicsReferenced). Placeholders MUST be replaced or marked with NOTE: MISSING DATA.
+8. Quality Gate: validate completeness vs template and artifact presence; list unmet criteria (missing sections without notes, missing front-matter keys, absent artifact) under `unmetQualityCriteria`.
+9. Execution Summary: append/update YAML block inside task spec (not artifact) summarizing run.
+10. Finalize: mark todos complete.
 
 ## Parameter Table Construction Rules
 
@@ -435,7 +436,8 @@ Version: 1.1.0 (multi-task & wildcard support added; frontmatter + invocation en
 
 Per Task:
 - Updated task file with populated sections and a single `EXECUTION_SUMMARY` YAML block (replaced if pre-existing).
-- Any missing required data explicitly listed in `NOTE: MISSING DATA`.
+- Emitted artifact file at `finalArtifact` path containing end-user documentation.
+- Any missing required data explicitly listed in `NOTE: MISSING DATA` (task) and mirrored in artifact.
 
 Batch (when multiple tasks supplied and `skipBatchSummary` not true):
 - `tasks/BATCH_EXECUTION_SUMMARY.md` created or replaced with aggregate metrics.
@@ -456,5 +458,6 @@ Plan-Only:
 - 1.1.0: Added batch mode, frontmatter, invocation examples, planOnly, skipBatchSummary.
 - 1.1.0-r1: Added assumptions, output expectations, rate limiting guidance, skipBatchSummary example, fence cleanup, typo fix (>=3 queries).
 - 1.1.1: Consume-only refactor alignment (stable filenames, removed network tool references, updated metrics & checklist).
+- 1.2.0: Added artifact emission phase, front-matter key enforcement (`generate`, `finalArtifact`), structural outline requirement for emitted docs.
 
 ```

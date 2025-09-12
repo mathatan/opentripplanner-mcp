@@ -1,8 +1,28 @@
 ---
-# NOTE: This is a TASK specification, not the final documentation.
+title: Realtime APIs Task Spec
+slug: realtime-apis
+version: 1.0.0
+generate: true
+finalArtifact: docs/realtime-apis.md
+dependsOn:
+	- routing-api
+	- routing-data-api
+sources:
+	- https://digitransit.fi/en/developers/apis/5-realtime-apis/
+otpTopics:
+	- TripUpdate
+	- VehiclePosition
+	- ServiceAlert
+	- RealtimeState
 ---
 
-# TASK: Realtime APIs
+<!-- EXECUTION DIRECTIVE: Runner MUST emit docs/realtime-apis.md final documentation with mapping tables & MQTT examples. -->
+
+## NOTE: This is a TASK specification, not the final documentation
+
+---
+
+## TASK: Realtime APIs
 
 ## 0. Purpose
 

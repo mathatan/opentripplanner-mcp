@@ -1,8 +1,24 @@
 ---
-# NOTE: This is a TASK specification, not the final documentation.
+title: Map API Task Spec
+slug: map-api
+version: 1.0.0
+generate: true
+finalArtifact: docs/map-api.md
+dependsOn:
+	- routing-api
+	- geocoding-api
+sources:
+	- https://digitransit.fi/en/developers/apis/4-map-api/
+otpTopics: []
 ---
 
-# TASK: Map API
+<!-- EXECUTION DIRECTIVE: Runner MUST emit docs/map-api.md with final documentation. -->
+
+## NOTE: This is a TASK specification, not the final documentation
+
+---
+
+## TASK: Map API
 
 ## 0. Purpose
 
