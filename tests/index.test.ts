@@ -1,16 +1,5 @@
 import { describe, it, expect } from "vitest";
-
-// Directly test the hello tool handler
-async function helloToolHandler({ name }: { name: string }) {
-    return {
-        content: [
-            {
-                type: "text",
-                text: `Hello, ${name}!`,
-            },
-        ],
-    };
-}
+import { helloToolHandler } from "../src/index";
 
 describe("hello tool", () => {
     it("returns correct greeting", async () => {

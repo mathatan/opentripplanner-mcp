@@ -76,7 +76,10 @@ describe("hello tool endpoint (e2e)", () => {
             };
             if (serverProcess.stdout) {
                 serverProcess.stdout.on("data", onData);
+                // Immediately process any buffered data
+                onData();
             } else {
+                clearTimeout(timeout);
                 reject(new Error("serverProcess.stdout is null"));
             }
         });
@@ -98,6 +101,9 @@ describe("hello tool endpoint (e2e)", () => {
         }
 
         // Wait for response
+        // MCP protocol assumption: This test assumes the server emits one JSON message per line.
+        // If the server switches to Content-Length framing or streaming, refactor this logic to use a proper framing parser.
+        // Do not use this approach for production protocol parsing.
         const result = await new Promise<{ content: { text: string }[] }>((resolve, reject) => {
             const timeout = setTimeout(() => reject(new Error("No response from MCP server")), 10000);
             const onData = () => {
