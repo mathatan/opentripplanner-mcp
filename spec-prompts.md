@@ -1,189 +1,173 @@
 # Spec-Kit Prompts for OpenTripPlanner MCP Server
 
-This document contains the comprehensive prompts for different spec-kit commands to guide the development of the OpenTripPlanner MCP Server following Spec-Driven Development (SDD) principles.
+This document contains simplified prompts for the OpenTripPlanner MCP Server development workflow. These prompts work alongside the existing `.cursor/commands/` infrastructure.
 
 ## 1. `/specify` Prompt
 
 ```text
-/specify Build a comprehensive Model Context Protocol (MCP) server that provides public transit trip planning and stop timetable services. The server should enable AI assistants to access public transportation data for intelligent geolocation, routing, and multimodal journey planning.
+/specify Create a comprehensive specification for an OpenTripPlanner MCP Server that enables AI assistants to provide intelligent public transportation assistance to users.
 
-Key functional requirements:
-- Multi-modal trip planning using buses, trams, trains, metros, and other public transit
-- Real-time transit updates including delays, cancellations, and live departures
-- Geocoding services for address and place search functionality
-- User variables system to save predefined stops, routes, and locations with custom names
-- Geographic coverage primarily for Finland (HSL, Tampere, Southwest Finland, Waltti) with extensibility for other regions
-- Shared mobility integration including bike/scooter rentals, car sharing, and park & ride options
-- Comprehensive API documentation covering routing, geocoding, map services, real-time data, and routing data APIs
+**Business Context:**
+AI assistants need access to real-time public transportation data to help users navigate cities efficiently. Current AI assistants lack direct integration with transit systems, limiting their ability to provide accurate, up-to-date travel information and multimodal journey planning.
 
-Documentation:
+**MCP (Model Context Protocol) Integration:**
+The server will implement the Model Context Protocol to provide AI assistants with structured access to public transportation data. MCP enables AI assistants to:
+- Access real-time transit information through standardized tool interfaces
+- Maintain user context and preferences across conversations
+- Provide consistent, reliable data access with proper error handling
+- Support both synchronous and asynchronous operations for better user experience
 
-Use API documentation specified in `/docs`-folder to gain better understanding. Also use Context7 MCP tool and web-tools to find additional details related to the specification.
+**Core MCP Tools to Implement:**
+- plan_trip: Multi-modal journey planning with real-time updates
+- find_stops: Search and discover nearby transit stops
+- get_departures: Real-time departure information and delays
+- geocode_address: Address and place search functionality
+- reverse_geocode: Convert coordinates to human-readable addresses
+- save_user_variable: Store user preferences and favorite locations
+- get_user_variables: Retrieve saved user data for personalized assistance
 
-The server must integrate with Digitransit APIs and OpenTripPlanner routing engine, providing a bridge between AI assistants and public transportation data. It should handle rate limiting, API authentication, error handling, and provide structured responses for AI consumption.
+**User Stories:**
+- As a commuter, I want to ask my AI assistant "How do I get from home to work?" and receive real-time transit options with walking directions
+- As a tourist, I want to find nearby transit stops and get departure times for popular destinations
+- As a frequent traveler, I want to save my favorite stops and routes for quick access
+- As a multimodal traveler, I want to plan trips that combine walking, cycling, public transit, and shared mobility options
+- As a user with accessibility needs, I want to receive information about accessible routes and real-time service disruptions
 
-User stories should cover scenarios like planning a journey from home to work, finding nearby transit stops, checking real-time departures, saving favorite locations, and planning multimodal trips that include walking, cycling, and public transit segments.
+**Core Value Proposition:**
+Bridge the gap between AI assistants and public transportation data, enabling intelligent, context-aware travel assistance that adapts to real-time conditions and user preferences through standardized MCP interfaces.
+
+**Success Criteria:**
+- AI assistants can provide accurate, real-time transit information through MCP tools
+- Users can plan multimodal journeys through natural language interactions
+- System handles Finnish transit systems (HSL, Tampere, Southwest Finland, Waltti) with extensibility for other regions
+- Integration supports both scheduled and real-time data with graceful fallbacks
+- MCP server provides reliable, rate-limited access to external APIs
+
+**Documentation References:**
+Use API documentation in `/docs` folder and Context7 MCP tool to understand technical capabilities and constraints for implementation planning.
 ```
 
 ## 2. `/plan` Prompt
 
 ```text
-/plan The OpenTripPlanner MCP Server builds upon an existing Node.js TypeScript foundation and follows strict Test-Driven Development (TDD) principles. The technical implementation uses:
+/plan Generate a comprehensive implementation plan for the OpenTripPlanner MCP Server, including technical architecture, research requirements, and constitution validation.
 
-**Core Technology Stack:**
-- Runtime: Node.js with ES modules support
-- Language: TypeScript with strict type checking
-- Package Manager: pnpm (version 10.15.1)
-- MCP Framework: @modelcontextprotocol/sdk (^1.17.5)
-- Validation: Zod (^3.25.76) for input validation and schema definition
-- Testing: Vitest for comprehensive test coverage
-- Linting: ESLint with TypeScript rules
+**Technical Context:**
+- **Runtime**: Node.js with ES modules support
+- **Language**: TypeScript with strict type checking
+- **Package Manager**: pnpm (version 10.15.1)
+- **MCP Framework**: @modelcontextprotocol/sdk (^1.17.5)
+- **Validation**: Zod (^3.25.76) for input validation and schema definition
+- **Testing**: Vitest for comprehensive test coverage
+- **Linting**: ESLint with TypeScript rules
 
-**Implementation Focus:**
-- Build OpenTripPlanner-specific MCP tools on existing MCP server foundation
-- Implement Digitransit API integration layer for route-planning
-- Create rate limiting and API key management
-- Develop error handling framework for transit-specific errors
-- Add user variables system for saving addresses, specific stops and routes for easier retrieval
+**Research Requirements:**
+Research and document the following technical decisions:
+- Digitransit API integration patterns and rate limiting strategies
+- MCP SDK best practices for tool implementation
+- Real-time data handling approaches for transit systems
+- Error handling patterns for external API failures
+- Performance optimization techniques for GraphQL queries
 
-**Architecture Constraints:**
-- TDD mandatory: Tests written → User approved → Tests fail → Then implement (Red-Green-Refactor cycle)
-- Every MCP tool MUST have comprehensive test coverage before implementation
-- Source code in `/src/` directory, built artifacts in `/build/` directory
-- Tests in `/tests/` directory, documentation in `/docs/` directory
-- Integration tests required for API changes and new MCP tool contracts
+**Implementation Phases:**
+1. **Infrastructure Setup**: API integration layer, rate limiting, error handling
+2. **Core MCP Tools**: Trip planning, stop search, departure information, geocoding
+3. **Advanced Features**: User variables, multimodal planning, service disruptions
+4. **Integration & Testing**: End-to-end testing, performance optimization
 
-**Documentation:**
+**API Integration Strategy:**
+- Primary data source: Digitransit.fi GraphQL APIs
+- Authentication: digitransit-subscription-key header management
+- Rate limiting: 10 requests/second with exponential backoff
+- Real-time data: <30 second freshness with scheduled fallback
+- Focus areas: Routing API and Geocoding API (skip Map and Realtime APIs)
 
-The project includes comprehensive API documentation in the `/docs` folder covering:
-- **Routing API** (`docs/routing-api.md`): GraphQL endpoints for trip planning, stop queries, real-time data, and shared mobility
-- **Geocoding API** (`docs/geocoding-api.md`): Address search, reverse geocoding, and autocomplete services
-- **Routing Data API** (`docs/routing-data-api.md`): Dataset endpoints and configuration files
+**Quality Assurance:**
+- TDD mandatory: Red-Green-Refactor cycle for all features
+- Constitution compliance verification for all implementations
+- Integration tests for API changes and MCP tool contracts
+- Performance benchmarks and error handling validation
 
-**Note**: Skip implementation of Map API and Realtime APIs as they are not relevant for the MCP server implementation. Focus only on Routing API and Geocoding API for core MCP functionality.
-
-Use this documentation to understand API parameters, authentication requirements, rate limits, and integration patterns. Also use Context7 MCP tool and web-tools to find additional details related to the specification.
-
-**API Integration:**
-- Primary data source: Digitransit.fi APIs with GraphQL endpoints (see `docs/routing-api.md`)
-- Authentication via API key management (digitransit-subscription-key header)
-- Rate limiting: 10 requests per second maximum with proper backoff strategies
-- Real-time data handling with <30 second freshness requirements (from routing API)
-- Graceful fallback to scheduled data when real-time unavailable
-- Geocoding services for address/place search (see `docs/geocoding-api.md`)
-
-**MCP Tool Architecture:**
-Each MCP tool must implement input validation with Zod schemas, error handling with meaningful messages, rate limiting respecting API quotas, and support for real-time data updates. The server runs on stdio for MCP-compatible client integration.
-
-**Quality Gates:**
-- All code must pass ESLint with TypeScript rules
-- Prettier for consistent code formatting
-- Strict TypeScript compilation
-- All tests must pass before deployment
-- Constitution compliance verification for all PRs
+**Documentation Integration:**
+Use existing API documentation in `/docs` folder and Context7 MCP tool to validate technical decisions and identify potential implementation challenges.
 ```
 
 ## 3. `/tasks` Prompt
 
 ```text
-/tasks Generate an actionable task breakdown for implementing the OpenTripPlanner MCP Server following TDD principles. The task list should cover:
+/tasks Generate actionable, dependency-ordered tasks for the OpenTripPlanner MCP Server.
 
-**Phase 1: API Integration & Infrastructure**
-- Create Zod validation schemas based on API parameters from `/docs` folder
-- Implement Digitransit API integration layer with GraphQL client (reference `docs/routing-api.md`)
-- Implement rate limiting and API key management (10 rps limit, see `docs/routing-api.md`)
-- Create error handling framework with meaningful error messages (reference error cases in docs)
-- Set up geocoding integration (reference `docs/geocoding-api.md`)
-- Configure real-time data handling from routing API (skip separate realtime APIs)
+**Context for Task Generation:**
+Focus on: [specific phase or feature area] - [provide specific context about what you want to implement]
 
-**Phase 2: Core MCP Tools (TDD Approach)**
-- plan_trip: Multi-modal journey planning using `planConnection` GraphQL query (see `docs/routing-api.md`)
-- find_stops: Search stops using `stopsByRadius` and `nearest` queries (see `docs/routing-api.md`)
-- get_departures: Real-time departure information using stop queries with `realtimeState` (see `docs/routing-api.md`)
-- geocode_address: Address search using `/geocoding/v1/search` endpoint (see `docs/geocoding-api.md`)
-- reverse_geocode: Coordinate to address using `/geocoding/v1/reverse` endpoint (see `docs/geocoding-api.md`)
-- save_user_variable: Store predefined stops, routes, and locations
-- get_user_variables: Retrieve saved user variables
-
-**Phase 3: Advanced Features**
-- get_route_info: Detailed route information using `routes` and `pattern` queries (see `docs/routing-api.md`)
-- find_nearby_places: Location-based search using `nearest` with place type filters (see `docs/routing-api.md`)
-- get_disruptions: Service disruptions using `canceledTrips` and service alerts (see `docs/routing-api.md`)
-- plan_multimodal: Complex trips including shared mobility using vehicle rental queries (see `docs/routing-api.md`)
-
-**Note**: Skip implementation of vehicle position tracking and map tile services as they are not relevant for MCP functionality.
-
-**Phase 4: Integration & Documentation**
-- Integration tests for all MCP tools
-- Performance optimization and caching implementation
-- Error handling and edge case coverage
-- Constitution compliance verification
-
-Each task should include test specifications, implementation requirements, and acceptance criteria. All tasks must follow the Red-Green-Refactor TDD cycle with tests written first, user approval, test failure verification, then implementation.
+**Available Resources:**
+- API documentation in `/docs/` folder for technical reference
+- Existing MCP server foundation in `/src/` directory
+- Existing Unit and End-to-end tests in `/tests/` directory
+- Constitution requirements for TDD compliance
 ```
 
 ## 4. `/implement` Prompt
 
 ```text
-/implement Begin implementation of the OpenTripPlanner MCP Server following the established TDD workflow and constitution requirements.
+/implement Execute the implementation of [specific task ID or task name] from the generated tasks.md file.
 
-**Implementation Guidelines:**
-- Build upon the existing MCP server foundation and test framework
-- Start with Phase 1 infrastructure tasks (API integration layer, rate limiting)
-- For each MCP tool, follow the strict TDD cycle:
-  1. Write comprehensive Vitest tests first
-  2. Get user approval for test specifications
-  3. Verify tests fail (Red phase)
-  4. Implement minimal code to pass tests (Green phase)
-  5. Refactor while maintaining test coverage (Refactor phase)
+**Task to Implement:**
+Task: [T001, T002, etc. or specific task name from tasks.md]
 
-**Implementation Priority:**
-1. Study existing API documentation in `/docs` folder to understand endpoints and parameters for geolocation and route-planning
-2. Implement Digitransit API integration layer with proper authentication (digitransit-subscription-key)
-3. Create Zod schemas based on API parameters documented in `/docs` folder
-4. Implement rate limiting and API key management (10 rps limit)
-5. Begin implementing core MCP tools using documented GraphQL queries and REST endpoints
+**Implementation Context:**
+- Use the existing MCP server foundation in `/src/` directory
+- Follow the established project structure and coding standards
+- Reference API documentation in `/docs/` folder for specific endpoints or functionality
+- Build upon existing test framework and patterns
 
-**Code Quality Requirements:**
-- All code must pass ESLint with TypeScript rules
-- Use Zod schemas for all input validation
+**TDD Implementation Cycle:**
+1. Write comprehensive Vitest tests first (Red phase)
+2. Get user approval for test specifications
+3. Verify tests fail as expected
+4. Implement minimal code to pass tests (Green phase)
+5. Refactor while maintaining test coverage (Refactor phase)
+
+**Code Implementation:**
+- Follow TypeScript strict mode and ESLint rules
+- Use Zod schemas for input validation
 - Implement proper error handling with meaningful messages
-- Follow the established project structure in `/src/`, `/tests/`, `/docs/`
-- Ensure all MCP tools have comprehensive test coverage before implementation
+- Ensure comprehensive test coverage
+- Follow established patterns from existing codebase
 
-**API Integration Standards:**
-- Use Digitransit.fi GraphQL APIs as primary data source (see `docs/routing-api.md`)
-- Implement proper rate limiting (10 requests/second maximum, see performance sections in docs)
-- Handle API authentication via digitransit-subscription-key header
-- Support real-time data with <30 second freshness requirements (from routing API)
-- Implement graceful fallback to scheduled data when real-time unavailable
-- Use documented error handling patterns from `/docs` folder
-- Follow parameter validation rules specified in API documentation
-- **Skip Map API and Realtime APIs**: Focus only on Routing API and Geocoding API
+**API Integration:**
+- Use Digitransit.fi GraphQL APIs as primary data source
+- Implement proper rate limiting and authentication
+- Handle real-time data with graceful fallback to scheduled data
+- Follow documented error handling patterns from `/docs/` folder
 
-**Constitution Compliance:**
-- Verify all implementations follow the established constitution
-- Ensure TDD cycle is demonstrated in code reviews
-- Include integration tests for API changes
-- Maintain performance benchmarks for new features
+**Task Completion:**
+- Verify implementation meets all task acceptance criteria
+- Ensure all tests pass
+- Update documentation if required
+- Report completion and any issues encountered
 
-Begin by studying the existing API documentation in `/docs` folder to understand the available endpoints, parameters, and integration patterns, then proceed with implementing the Digitransit API integration layer before moving to MCP tool implementation.
+**Next Task:**
+After completing this task, proceed to: [next task ID or name from tasks.md]
 ```
 
 ## Usage Instructions
 
-These prompts are designed to be used with spec-kit to guide the development of the OpenTripPlanner MCP Server. Each prompt corresponds to a different phase of the Spec-Driven Development process:
+These prompts work alongside the existing `.cursor/commands/` infrastructure:
 
-1. **`/specify`** - Use this to define the high-level requirements and user stories
-2. **`/plan`** - Use this to establish the technical implementation approach
-3. **`/tasks`** - Use this to break down the work into actionable tasks
-4. **`/implement`** - Use this to begin the actual implementation following TDD principles
+1. **`/specify`** - Define business requirements and user stories (focus on "what" and "why")
+2. **`/plan`** - Establish technical architecture and implementation phases
+3. **`/tasks`** - Generate actionable, dependency-ordered tasks
+4. **`/implement`** - Execute specific tasks following TDD principles
 
-Each prompt is tailored specifically to the OpenTripPlanner MCP Server project and incorporates the requirements from the project's README.md, constitution, and existing structure.
+**Customization:**
+
+- Replace bracketed fields `[like this]` with your specific requirements
+- Each prompt is designed to be pasted directly to the agent with minimal modification
 
 ## Project Context
 
-These prompts are based on the OpenTripPlanner MCP Server project which:
+**OpenTripPlanner MCP Server:**
 
 - Provides public transit trip planning and stop timetable services
 - Integrates with Digitransit APIs and OpenTripPlanner routing engine
@@ -194,14 +178,7 @@ These prompts are based on the OpenTripPlanner MCP Server project which:
 
 **Available Resources:**
 
-- **Complete API Documentation** in `/docs/` folder:
-  - `routing-api.md`: GraphQL endpoints, parameters, examples, and error handling
-  - `geocoding-api.md`: Address search, reverse geocoding, and autocomplete services
-  - `routing-data-api.md`: Dataset endpoints and configuration files
-  - `realtime-apis.md`: GTFS-RT feeds, MQTT subscriptions (skip for MCP implementation)
-  - `map-api.md`: Raster and vector tiles (skip for MCP implementation)
-- **Generated Task Specifications** in `/tasks/generated/` for reference
-- **Existing MCP server foundation** with basic "hello" tool and test framework
-- **Authentication Details**: digitransit-subscription-key header format
+- **API Documentation** in `/docs/` folder (routing-api.md, geocoding-api.md, routing-data-api.md)
+- **Existing MCP server foundation** in `/src/` directory
+- **Authentication**: digitransit-subscription-key header format
 - **Rate Limiting**: 10 requests per second maximum with backoff strategies
-- **Error Handling Patterns**: Documented error cases and expected responses
