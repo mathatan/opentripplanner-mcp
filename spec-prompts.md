@@ -95,16 +95,14 @@ Use existing API documentation in `/docs` folder and Context7 MCP tool to valida
 ## 3. `/tasks` Prompt
 
 ```text
-/tasks Generate actionable, dependency-ordered tasks for the OpenTripPlanner MCP Server.
+/tasks
 
-**Context for Task Generation:**
-Focus on: [specific phase or feature area] - [provide specific context about what you want to implement]
-
-**Available Resources:**
+**Available Additional Resources:**
 - API documentation in `/docs/` folder for technical reference
 - Existing MCP server foundation in `/src/` directory
 - Existing Unit and End-to-end tests in `/tests/` directory
 - Constitution requirements for TDD compliance
+- Use MCP tools like Context7 and Websearch if additional context is needed
 ```
 
 ## 4. `/implement` Prompt

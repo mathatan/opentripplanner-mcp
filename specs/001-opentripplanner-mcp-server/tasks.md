@@ -1,129 +1,189 @@
-# Phase 2 Task Breakdown & Execution Plan
+# Tasks: OpenTripPlanner MCP Server (Feature 001-opentripplanner-mcp-server)
 
-Date: 2025-09-15
+Generated: 2025-09-16
 Branch: 001-opentripplanner-mcp-server
 
-## Phase Overview
+Source Docs Loaded: plan.md, research.md, data-model.md, contracts/*, quickstart.md
 
-Phases map to Implementation Phases provided by user plus constitution quality gates.
+Legend:
+  [P] = Task can be executed in parallel (different file, no unmet dependency)
+  RED = Write failing test/spec only
+  GREEN = Implement logic to satisfy previously failing tests
 
-| Phase | Objective | Key Outputs |
-|-------|-----------|-------------|
-| 0 | Research & Decisions | research.md (DONE) |
-| 1 | Domain Contracts & Data Model | data-model.md (FINAL) |
-| 2 | Task Planning & Execution Map | tasks.md (this), backlog segmentation |
-| 3 | Infrastructure Setup | HTTP client, rate limiter, error framework, logging scaffold |
-| 4 | Core MCP Tools | plan_trip, find_stops, get_departures, geocode_address, reverse_geocode, save_user_variable, get_user_variables |
-| 5 | Advanced Features | Accessibility filtering, disruption handling, deduplication, user variable integration across tools |
-| 6 | Integration & Performance | Integration tests, performance tuning, caching, retry telemetry |
-| 7 | Documentation & Compliance | quickstart.md, constitution adherence audit, README updates |
-| 8 | Hardening | Edge cases, cancellation flow, warnings, resilience checks |
+Constitution Alignment: All implementation follows Clause C1 (Test-First), C2 (Integration Triggers), C5 (Rate Limit & Retry), C6 (Unified Errors).
 
-## Workstreams
+## Phase 1: Setup & Scaffolding
 
-1. Foundational Infrastructure
-2. Tool Implementations
-3. Advanced Behavior & Realtime
-4. Testing & QA
-5. Documentation & Governance
+T001  Create base directories: src/schema, src/tools, src/services, src/infrastructure, src/store, src/util (empty index.ts files exporting nothing yet). Update tsconfig paths if needed.
+T002  Add placeholder exports in src/index.ts referencing upcoming registries (no logic) so future imports resolve.
+T003 [P] Initialize shared type re-export file src/schema/index.ts (placeholder) to allow test compilation before concrete schemas exist.
+T004 [P] Add test utilities file tests/helpers/testHttp.ts (mock HTTP + token bucket harness skeleton, no implementation yet).
 
-## Detailed Tasks
+## Phase 2: Test-First (Contracts, Schemas, Infrastructure)  (ALL RED Tests Only)
 
-### 3. Infrastructure Setup
+NOTE: Do NOT implement production code in this phase—only failing tests & minimal type stubs.
 
-| ID | Task | Description | Acceptance Criteria | Dependencies |
-|----|------|-------------|---------------------|--------------|
-| INF-001 | HTTP Client Wrapper | Implement fetch wrapper with timeout & Abort support | Unit tests for timeout, retry, header injection | Node fetch / env vars |
-| INF-002 | Rate Limiter | Token bucket (capacity 30, refill 10/s) + metrics | Simulated 15 rapid calls only 10 succeed immediate, rest delayed | INF-001 |
-| INF-003 | Retry Policy | Exponential jitter backoff (max 5 tries) for 429/5xx | Tests assert delay progression & attempt cap | INF-001 |
-| INF-004 | Error Normalization | Map statuses & GraphQL errors to unified codes | All matrix cases mapped with tests | INF-001 |
-| INF-005 | Logging Interface | Structured logger abstraction + default console impl | Log object includes required fields in tests | None |
-| INF-006 | Correlation ID Utility | UUID generator & propagation | ID present in logs & responses | INF-005 |
-| INF-007 | In-Memory Store | User variable session store with TTL (24h inactivity) | Expiration test, isolation test | None |
-| INF-008 | Cache Layer | LRU for geocode & itinerary collapse window | Hit/miss metrics, eviction test | INF-001 |
+// Contract Tool Tests (each contract file → one RED test file per tool)
+T005 [P] RED contract tests for plan_trip in tests/tools/plan_trip.contract.test.ts (validation cases, realtime/mixed placeholders, dedupe placeholder).
+T006 [P] RED contract tests for find_stops in tests/tools/find_stops.contract.test.ts (radius, truncation, filter warnings).
+T007 [P] RED contract tests for get_departures in tests/tools/get_departures.contract.test.ts (delay mapping, cancellation precedence, truncation).
+T008 [P] RED contract tests for geocode_address in tests/tools/geocode_address.contract.test.ts (truncation > size, no results error, ordering, focus tie-break).
+T009 [P] RED contract tests for reverse_geocode in tests/tools/reverse_geocode.contract.test.ts (no results error, language fallback).
+T010 [P] RED contract tests for save_user_variable in tests/tools/save_user_variable.contract.test.ts (overwrite previous, coordinate validation, TTL marker placeholder).
+T011 [P] RED contract tests for get_user_variables in tests/tools/get_user_variables.contract.test.ts (empty list, after saves ordering).
 
-### 4. Core MCP Tools
+// Schema Entity Tests (each entity gets a dedicated schema file plan; combine simple ones where logical)
+T012 [P] RED schema tests for Coordinate & validation boundaries in tests/schema/coordinate.schema.test.ts.
+T013 [P] RED schema tests for LocationRef in tests/schema/locationRef.schema.test.ts.
+T014 [P] RED schema tests for PlanConstraints & AccessibilityPrefs ranges and unknown key rejection in tests/schema/planConstraints.schema.test.ts.
+T015 [P] RED schema tests for Leg & Itinerary realtime status mapping placeholders in tests/schema/itinerary.schema.test.ts.
+T016 [P] RED schema tests for GeocodeResult & GeocodeResponse (truncated flag) in tests/schema/geocode.schema.test.ts.
+T017 [P] RED schema tests for Departure & DepartureResponse ordering in tests/schema/departure.schema.test.ts.
+T018 [P] RED schema tests for UserVariable & UserVariablesResponse TTL shape in tests/schema/userVariable.schema.test.ts.
+T019 [P] RED schema tests for Error & Warning objects in tests/schema/error.schema.test.ts.
 
-| ID | Task | Description | Acceptance Criteria | Dependencies |
-|----|------|-------------|---------------------|--------------|
-| TOOL-001 | plan_trip schema + tests (RED) | Define Zod schema & failing tests | Tests failing initially | INF-* partial |
-| TOOL-002 | plan_trip implementation (GREEN) | Build GraphQL query builder & transform | Tests pass, returns standard itinerary | TOOL-001 |
-| TOOL-003 | find_stops | Nearest stops via GraphQL `stopsByRadius` or `nearest` | Returns list, truncation logic, tests pass | INF-001, INF-002 |
-| TOOL-004 | get_departures | Stop departures transformed to departure model | Schedules w/ realtime status mapping | INF-* |
-| TOOL-005 | geocode_address | Forward geocode + pagination/truncation | Proper confidence ordering; max 40 cap noted | INF-001, INF-008 |
-| TOOL-006 | reverse_geocode | Reverse geocoding | Top feature selected; tests cover invalid coords | INF-001 |
-| TOOL-007 | save_user_variable | Store/overwrite variable | Returns previous summary if overwrite | INF-007 |
-| TOOL-008 | get_user_variables | List stored variables | Empty list success & later addition test | INF-007 |
+// Infrastructure & Utility Tests (RED)
+T020 [P] RED tests for rate limiter token bucket in tests/infra/rateLimiter.test.ts (burst 30 cap, refill 10/s behavior simulation using fake timers).
+T021 [P] RED tests for retry policy (exponential jitter bounds, max attempts=5, non-retry codes) in tests/infra/retryPolicy.test.ts.
+T022 [P] RED tests for http client wrapper (timeout, header injection of API key, correlation ID propagation) in tests/infra/httpClient.test.ts.
+T023 [P] RED tests for unified error mapping (status→code matrix) in tests/infra/errorMapping.test.ts.
+T024 [P] RED tests for user variable store (overwrite returns previous, TTL expiry simulation) in tests/store/userVariableStore.test.ts.
+T025 [P] RED tests for geocode LRU cache & itinerary request collapsing in tests/cache/cache.test.ts.
+T026 [P] RED tests for fingerprint hashing uniqueness & stability in tests/util/fingerprint.test.ts.
+T027 [P] RED tests for logging interface structure (fields presence) in tests/infra/logging.test.ts.
 
-### 5. Advanced Features
+// Integration RED scaffolds (placeholders referencing not-yet-implemented code)
+T028 [P] RED e2e test skeleton for plan_trip via stdio in tests/e2e/plan_trip.e2e.test.ts (spawns built server) extending existing handshake.
+T029 [P] RED e2e test skeleton for geocode_address in tests/e2e/geocode_address.e2e.test.ts.
+T030 [P] RED e2e test skeleton for user variable roundtrip (save + get) in tests/e2e/user_variables.e2e.test.ts.
 
-| ID | Task | Description | Acceptance Criteria | Dependencies |
-|----|------|-------------|---------------------|--------------|
-| ADV-001 | Accessibility Filtering | Apply walking distance + transfers constraints; annotate unmet | Flagged itineraries & warnings | TOOL-002 |
-| ADV-002 | Realtime Aggregation | Derive scheduleType & dataFreshness | Mixed detection test w/ fixtures | TOOL-002 |
-| ADV-003 | Disruption Detection | Detect cancellations/delays > threshold & alt search | Alternate itinerary returned + disruption flag | ADV-002 |
-| ADV-004 | Itinerary Deduplication | Fingerprint & remove near duplicates | Duplicate fixture returns unique set | TOOL-002 |
-| ADV-005 | Geocode Disambiguation | Fuzzy suggestions on no direct match | Suggestions < =5 with confidence ordering | TOOL-005 |
-| ADV-006 | Language Fallback | Implement Accept-Language + fallback chain | Missing translation falls back to fi/en | INF-001 |
-| ADV-007 | Cancellation Flow | Introduce long-running cancellation pattern (operation id) | Cancel request test returns cancellation error code | INF-001 |
+## Phase 3: Schema & Infrastructure Implementation (GREEN)
 
-### 6. Integration & Performance
+Implement only after all Phase 2 tests exist & fail.
 
-| ID | Task | Description | Acceptance Criteria | Dependencies |
-|----|------|-------------|---------------------|--------------|
-| INT-001 | Live API Smoke Tests | Opt-in integration hitting real endpoints | Pass w/ real key (skipped if no key) | TOOL-* |
-| INT-002 | Fixture Recording | Capture HTTP fixtures for deterministic tests | Replays succeed offline | INT-001 |
-| INT-003 | Performance Baseline | Measure median & p95 timings (mock & live) | Document metrics < targets | INT-001 |
-| INT-004 | Rate Limit Stress Test | Simulate >10 rps & verify throttling | Delay distribution validated | INF-002 |
-| INT-005 | Error Path Coverage | Simulate 401, 429, 5xx, timeout | All mapped codes; coverage thresholds | INF-004 |
+T031  Implement Coordinate & basic primitive schemas in src/schema/coordinate.ts make RED tests pass.
+T032 [P] Implement LocationRef schema src/schema/locationRef.ts.
+T033 [P] Implement PlanConstraints & AccessibilityPrefs with strict key rejection src/schema/planConstraints.ts.
+T034 [P] Implement Leg & Itinerary schemas with status derivation helper src/schema/itinerary.ts.
+T035 [P] Implement GeocodeResult & GeocodeResponse schemas src/schema/geocode.ts.
+T036 [P] Implement Departure & DepartureResponse schemas src/schema/departure.ts.
+T037 [P] Implement UserVariable & UserVariablesResponse schemas src/schema/userVariable.ts.
+T038 [P] Implement Error & Warning schemas src/schema/error.ts.
+T039  Aggregate exports in src/schema/index.ts (ensure tree-shake safe) and update tests imports.
+T040  Implement rate limiter src/infrastructure/rateLimiter.ts (capacity 30, refill 10/s).
+T041 [P] Implement retry policy util src/infrastructure/retryPolicy.ts (exponential decorrelated jitter).
+T042 [P] Implement http client wrapper src/infrastructure/httpClient.ts (timeout, retries, rate limit integration, correlation ID injection, Accept-Language pass-through).
+T043 [P] Implement unified error mapping src/infrastructure/errors.ts (factory + mapping table).
+T044 [P] Implement logging interface src/infrastructure/logging.ts (JSON line logger) with correlation integration.
+T045 [P] Implement user variable store src/store/userVariables.ts (TTL 24h, lazy sweep, overwrite semantics).
+T046 [P] Implement geocode & itinerary caches src/infrastructure/cache.ts (LRU + request collapsing window 500ms).
+T047 [P] Implement fingerprint util src/util/fingerprint.ts (sha1 hash method as per spec).
 
-### 7. Documentation & Governance
+## Phase 4: Service Layer Implementation
 
-| ID | Task | Description | Acceptance Criteria | Dependencies |
-|----|------|-------------|---------------------|--------------|
-| DOC-001 | quickstart.md | Usage examples for each tool | All tool examples compile | TOOL-* |
-| DOC-002 | Schema Reference | Auto-generate schema markdown (future) | Document lists all entities | DOC-001 |
-| DOC-003 | Constitution Audit | Checklist mapping tasks to clauses | All clauses referenced | All |
+T048  Implement routing service src/services/routingService.ts (GraphQL query builder minimal fragments, dedupe support hook).
+T049 [P] Implement geocoding service src/services/geocodingService.ts (forward + reverse, normalization, truncation logic).
+T050 [P] Implement departures service src/services/departuresService.ts (status mapping + freshness computation).
+T051 [P] Implement user variable service adapter src/services/userVariablesService.ts (wrap store with validation helper functions).
 
-### 8. Hardening & QA
+## Phase 5: Tool Implementations (GREEN per tool after schemas & services ready)
 
-| ID | Task | Description | Acceptance Criteria | Dependencies |
-|----|------|-------------|---------------------|--------------|
-| QA-001 | Fuzz Validation | Random invalid payloads vs schemas | No crashes; structured errors | TOOL-* |
-| QA-002 | Soak Test Simulation | 1k sequential trip plans w/ mock upstream | No memory leak growth > threshold | INF-002 |
-| QA-003 | Security Scan | ESLint + dependency audit | No high severity unresolved | None |
-| QA-004 | Accessibility Pref Edge Cases | Unsupported preference yields warning | Tests pass | ADV-001 |
+T052  Implement plan_trip tool src/tools/planTrip.ts (validation using schemas, service invocation, dedupe placeholder, realtimeUsed calculation simple initial) + update src/index.ts registration.
+T053 [P] Implement find_stops tool src/tools/findStops.ts (radius validation, truncation warning, modes filter, register tool).
+T054 [P] Implement get_departures tool src/tools/getDepartures.ts (delay/status mapping, ordering, truncation warning).
+T055 [P] Implement geocode_address tool src/tools/geocodeAddress.ts (forward only, truncation flag/warning, focus tie-break, error mapping for no results).
+T056 [P] Implement reverse_geocode tool src/tools/reverseGeocode.ts (language fallback chain, first candidate selection).
+T057 [P] Implement save_user_variable tool src/tools/saveUserVariable.ts (overwrite logic, return previous summary) and register.
+T058 [P] Implement get_user_variables tool src/tools/getUserVariables.ts.
 
-## Cross-Cutting Acceptance Criteria
+## Phase 6: Advanced Behavior Enhancements
 
-- 100% of external requests pass through HTTP wrapper (enforced by central export pattern).
-- All tool handlers return within 2s median in mock tests.
-- Each tool has: validation tests, success tests, error path tests.
-- Coverage: ≥85% lines for new modules; critical logic (rate limiter, retry, itinerary transform) ≥95% branch coverage.
+T059  Implement itinerary deduplication via fingerprint & meta.deduplicatedFrom in planTrip service/tool.
+T060 [P] Implement realtime aggregation & scheduleType calculation improvements (mixed vs realtime) in itinerary transform.
+T061 [P] Implement disruption detection & alternate search logic (delay >300s / cancellation triggers second query) with warning injection.
+T062 [P] Implement accessibility warnings unsupported-accessibility-flag & preference-unmet logic.
+T063 [P] Implement geocode disambiguation (fuzzy suggestions) extension (if provider supports) else stub with TODO & tests adjusted.
+T064 [P] Implement language fallback for all tools (Accept-Language header cascade + warnings when unmet) centralizing logic.
 
-## Definition of Done
+## Phase 7: Integration & Performance (GREEN new tests)
 
-A task is considered done when:
+T065  Flesh out e2e plan_trip test (real transformation assertions) tests/e2e/plan_trip.e2e.test.ts.
+T066 [P] Flesh out e2e geocode_address test.
+T067 [P] Flesh out e2e user variables roundtrip test.
+T068 [P] Add e2e find_stops test tests/e2e/find_stops.e2e.test.ts.
+T069 [P] Add e2e get_departures test tests/e2e/get_departures.e2e.test.ts.
+T070  Add rate limit stress test integration (simulated parallel invocations) tests/integration/rateLimit.stress.test.ts.
+T071 [P] Add error path integration test (401/429/timeout mocks) tests/integration/errorPaths.test.ts.
+T072 [P] Add performance baseline test measuring p50/p95 timings (mock upstream) tests/perf/performance.test.ts.
+T073 [P] Add cache hit/miss integration test tests/integration/cacheBehavior.test.ts.
 
-1. Failing test written first (if applicable) and then green after implementation.
-2. Types compile with `tsc --noEmit`.
-3. Lint passes (ESLint + markdown style for docs future pass phase).
-4. Integration test added (where mandated by constitution) or explicitly deferred with rationale.
-5. Documentation updated if public contract changed.
+## Phase 8: Documentation & Governance
 
-## Risk-Based Prioritization
+T074  Update quickstart.md examples for all tools & parameters (ensuring alignment with final schemas).
+T075 [P] Generate or hand-write schema reference docs docs/schema-reference.md (list all entities & fields).
+T076 [P] Add constitution audit mapping (clauses → files/tests) docs/constitution-audit.md.
+T077 [P] Update README.md with new tool usage & build/test instructions.
 
-1. plan_trip (high complexity & central value)
-2. rate limiter & retry (protect reliability)
-3. error normalization (consistency foundation)
-4. realtime & disruption logic (user trust)
-5. geocoding and disambiguation (entry funnel)
+## Phase 9: Hardening & Polish
 
-## Backlog (Deferred / Future)
+T078  Add fuzz validation test suite tests/fuzz/validationFuzz.test.ts (random invalid payloads produce validation-error not crashes).
+T079 [P] Add soak test (1k sequential plan_trip with mock responses) tests/soak/planTripSoak.test.ts ensuring no memory leak.
+T080 [P] Add security/dependency audit script (pnpm audit) integrated into a test guard tests/security/audit.test.ts (skips on offline).
+T081 [P] Add coverage threshold enforcement script (vitest coverage gate) updating package.json scripts.
+T082 [P] Refactor & remove duplication (single constants file src/constants.ts) – no behavior change; ensure tests remain green.
+T083 [P] Run and document manual exploratory scenarios docs/manual-test-scenarios.md (list prompts & expected outputs).
+T084 [P] Final pass: ensure all tool error paths include correlationId & warnings never silently dropped (spot tests update if missing).
+T085  Version bump to 0.1.0 in package.json & changelog entry CHANGELOG.md summarizing implemented feature set.
 
-- Emissions calculation enrichment (pending policy)
-- Persistent storage beyond in-memory (external KV)
-- Multi-region dynamic feed expansion
-- Streaming partial itinerary results
+## Dependencies Summary (High-Level)
 
-Status: Final (Phase 2 planning complete; ready for execution)
+- Phase order strictly ascending: Setup → Test-First → Schemas/Infra → Services → Tools → Advanced → Integration → Docs → Hardening.
+- Each RED test task (T005–T030, T012–T027) precedes its corresponding GREEN implementation tasks (T031+ etc.).
+- Tool implementations (T052–T058) depend on services (T048–T051) and schemas (T031–T038) & infra (T040–T047).
+- Advanced behaviors (T059–T064) depend on base tool implementations (T052–T058).
+- E2E tests (T065–T073) depend on tool implementations; performance & rate limit tests depend on infra & tools.
+- Documentation tasks (T074–T077) depend on stable schemas & tools.
+- Hardening tasks depend on all previous phases.
+
+## Parallel Execution Guidance Examples
+
+Example 1 (Contract Tests Batch):
+  Can run in parallel: T005 T006 T007 T008 T009 T010 T011
+
+Example 2 (Schema Tests Batch):
+  Parallel: T012 T013 T014 T015 T016 T017 T018 T019
+
+Example 3 (Infra Tests Batch):
+  Parallel: T020 T021 T022 T023 T024 T025 T026 T027
+
+Example 4 (Schema Implementation Batch after all RED tests present & failing):
+  Parallel: T032 T033 T034 T035 T036 T037 T038 (T031 & T039 & T040 must respect ordering: T031 before others referencing coordinate; T039 after all schema files; T040 after retry policy if it imports it.)
+
+Example 5 (Tool Implementation Batch):
+  Parallel: T053 T054 T055 T056 T057 T058 (T052 serialized first due to shared itinerary transformation components refined in later tasks.)
+
+Example 6 (Advanced Enhancements):
+  Parallel: T060 T061 T062 T063 T064 after T059 completed.
+
+Task Agent Invocation Sample (conceptual):
+  agent run T005 T006 T007 T008 T009 T010 T011
+  agent run T012..T019
+  agent run T020..T027
+  agent run T031 && agent run T032 T033 T034 T035 T036 T037 T038
+
+## Validation Checklist
+
+  [ ] All contract files mapped to RED test tasks (plan_trip, find_stops, get_departures, geocode_address, reverse_geocode, save_user_variable, get_user_variables)
+  [ ] All entities from data-model have schema test & implementation tasks
+  [ ] All infra components (rate limiter, retry, http client, error mapping, cache, store, logging, fingerprint) have RED then GREEN tasks
+  [ ] Tests precede implementation for every component (C1)
+  [ ] Parallel [P] tasks operate on distinct files
+  [ ] Each task specifies a concrete file path or output artifact
+  [ ] Documentation tasks scheduled after implementation stabilization
+  [ ] Coverage & performance gates included (T072, T081)
+
+## Completion Definition
+
+All tasks through T085 completed, tests green, lint passes, coverage thresholds met, performance targets documented, version bumped, and constitution audit produced.
+
+Status: READY FOR EXECUTION
