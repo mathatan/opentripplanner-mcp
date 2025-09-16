@@ -82,5 +82,5 @@ GeocodeResult {
 
 ## Constitution Alignment
 
-* Test-first: tests enumerated before implementation (TOOL-006)
+* Test-first: tests enumerated before implementation (TOOL-006).
 * Consistency: shares normalization logic with forward geocode.

@@ -14,12 +14,13 @@ Compute multimodal itineraries with realtime awareness between two points or sav
 | destination | object | Yes | – | Same as origin |
 | when | object | No | `{ type:'depart', time:'now' }` | If time = 'now' server uses current UTC; otherwise ISO 8601 provided |
 | when.type | string | – | depart | Allowed: depart, arrive |
-| constraints.optimize | string | No | balanced | Allowed: balanced, few_transfers, shortest_time |
-| constraints.maxWalkingDistance | number | No | 1500 | 1..3000 meters |
-| constraints.maxTransfers | number | No | 4 | 0..8 |
-| constraints.accessibility.stepFree | boolean | No | false | Adds warning if upstream data insufficient |
-| constraints.accessibility.lowWalkingDistance | boolean | No | false | Enables post-filter annotation |
-| constraints.language | string | No | en | Allowed: fi, sv, en (fallback chain) |
+| constraints | object or null | No | null | See Constraints Object below. When null or omitted, all defaults apply. Reject non-object (non-null) types. |
+| constraints.optimize | string | – | balanced | (Within constraints) Allowed: balanced, few_transfers, shortest_time |
+| constraints.maxWalkingDistance | number | – | 1500 | 1..3000 meters |
+| constraints.maxTransfers | number | – | 4 | 0..8 |
+| constraints.accessibility.stepFree | boolean | – | false | Adds warning if upstream data insufficient |
+| constraints.accessibility.lowWalkingDistance | boolean | – | false | Enables post-filter annotation |
+| constraints.language | string | – | en | Allowed: fi, sv, en (fallback chain) |
 | limit | number | No | 2 | 1..3 (after dedupe) |
 | includeDisruptionAlt | boolean | No | true | Attempt relaxed alt search if disruption detected |
 
@@ -38,6 +39,44 @@ Origin/Destination Shape:
 4. Reject if maxWalkingDistance > 3000 or < 1.
 5. Reject if maxTransfers > 8 or <0.
 6. When `type:'arrive'` time MUST be provided (no 'now').
+7. `constraints` MUST be either an object or null. If provided and not an object (e.g. array, number, string), reject with `validation-error` (message: `constraints must be an object`).
+8. Reject unknown top-level keys inside `constraints` with `validation-error` (message: `unknown constraint key: <key>`).
+9. Reject if any nested key under `accessibility` is not one of `stepFree`, `lowWalkingDistance`.
+10. If `constraints.language` not in allowed set, apply fallback chain (fi→sv→en or sv→fi→en) ending with `en`; add warning `preference-unmet`.
+
+### Constraints Object Schema
+
+Top-level shape (Zod-style pseudo):
+
+```ts
+constraints?: {
+  optimize?: 'balanced' | 'few_transfers' | 'shortest_time'
+  maxWalkingDistance?: number // integer 1..3000
+  maxTransfers?: number // integer 0..8
+  accessibility?: {
+    stepFree?: boolean
+    lowWalkingDistance?: boolean
+  }
+  language?: 'fi' | 'sv' | 'en'
+} | null
+```
+
+Rules & Defaults:
+
+| Field | Default | Notes |
+|-------|---------|-------|
+| optimize | balanced | Controls scoring heuristic sent upstream |
+| maxWalkingDistance | 1500 | Clamp into 1..3000; reject outside range |
+| maxTransfers | 4 | Clamp not applied; out-of-range rejects (0..8) |
+| accessibility.stepFree | false | If requested but upstream lacks flag -> warning `unsupported-accessibility-flag` |
+| accessibility.lowWalkingDistance | false | May trigger itinerary annotation / filtering stage |
+| language | en | Fallback chain: requested -> alt (fi<->sv) -> en |
+
+Omission / Null Handling:
+
+- If `constraints` omitted or null: instantiate internal defaults above (equivalent to empty object) and do not emit warnings.
+- Missing nested objects are treated as empty (e.g., no `accessibility` provided → both flags false).
+- Unknown keys at any depth cause rejection (strict mode) to keep forward-compat predictable.
 
 ## Output Schema
 

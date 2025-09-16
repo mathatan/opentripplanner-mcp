@@ -39,18 +39,6 @@ GeocodeResult {
 }
 ```
 
-### GeocodeResult
-
-```text
-name: string
-coordinates: { lat, lon }
-confidence: number (0..1)
-type: 'address' | 'poi' | 'stop'
-language?: string
-label?: string
-address?: string (single-line)
-```
-
 ## Business Rules
 
 1. If provider returns more than `size` (capped 40), truncate and set `truncated=true` plus warning `truncated-results`.

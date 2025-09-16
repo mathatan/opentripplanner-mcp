@@ -143,16 +143,16 @@ InvalidYAML:<file> | MissingSnapshotFile:<id> | ConcurrencyViolation:>3 | Memory
 
 ## Summary Block
 
-```
+```yaml
 CONTEXT_MANAGER_SUMMARY:
-  executedAt: <ISO8601>
-  sourcesProcessed: <n>
-  otpTopicsProcessed: <n>
-  overwritten: <n>
-  newSnapshots: <n>
-  failed: [<id>]
-  unmetQualityCriteria: [<codes>]
-  notes: <short>
+    executedAt: <ISO8601>
+    sourcesProcessed: <n>
+    otpTopicsProcessed: <n>
+    overwritten: <n>
+    newSnapshots: <n>
+    failed: [<id>]
+    unmetQualityCriteria: [<codes>]
+    notes: <short>
 ```
 
 ## Style

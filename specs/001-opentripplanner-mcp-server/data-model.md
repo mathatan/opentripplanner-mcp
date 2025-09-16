@@ -22,14 +22,14 @@ message: string
 hint?: string
 correlationId?: string
 retryAfter?: number (seconds; only for rate-limited)
-```text
+```
 
 ### Coordinate
 
 ```text
 lat: number (-90..90)
 lon: number (-180..180)
-```text
+```
 
 Validation: reject NaN, require finite.
 
@@ -41,7 +41,7 @@ name?: string   // human-friendly proper name from authoritative source (e.g., s
 address?: string // postal or descriptive address line (single-line normalized) if available from geocoder / reverse geocode
 coordinate: Coordinate
 rawSource?: string // 'geocode' | 'user-variable' | 'input'
-```text
+```
 
 Semantics:
 
@@ -62,7 +62,7 @@ realtimeUsed: 'realtime' | 'scheduled' | 'mixed'
 dataFreshness: string (ISO)
 correlationId: string
 warnings?: Warning[]
-```text
+```
 
 ### PlanConstraints
 
@@ -72,7 +72,7 @@ maxWalkingDistance: number (meters, default 1500, <= 3000)
 maxTransfers: number (default 4, <= 8)
 accessibility?: AccessibilityPrefs
 language?: 'fi' | 'sv' | 'en'
-```text
+```
 
 ### AccessibilityPrefs
 
@@ -81,7 +81,7 @@ stepFree?: boolean
 fewTransfers?: boolean (maps to optimize override maybe)
 lowWalkingDistance?: boolean
 prioritizeLowFloor?: boolean // may not be supported yet -> yields warning if true
-```text
+```
 
 ### Itinerary
 
@@ -92,8 +92,8 @@ numberOfTransfers: number
 walkingDistance: number (meters)
 scheduleType: 'realtime' | 'scheduled' | 'mixed'
 accessibilityNotes?: string[]
-DisruptionFlag?: boolean
-DisruptionNote?: string
+disruptionFlag?: boolean
+disruptionNote?: string
 fingerprint: string // derived uniqueness hash (mode|line|from|to per leg + start time bucket)
 ```
 
