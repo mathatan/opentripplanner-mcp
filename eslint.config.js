@@ -11,9 +11,12 @@ export default [
         languageOptions: {
             globals: { ...globals.node },
         },
+        rules: {
+            "no-unused-vars": "off",
+        },
     },
     {
-        files: ["**/*.ts"],
+        files: ["src/**/*.ts"],
         languageOptions: {
             parser: tsparser,
             parserOptions: {
@@ -25,6 +28,22 @@ export default [
             n,
         },
         rules: {
+            "no-unused-vars": "off",
+            "@typescript-eslint/no-unused-vars": "warn",
+            "@typescript-eslint/no-explicit-any": "off",
+        },
+    },
+    {
+        files: ["tests/**/*.ts"],
+        languageOptions: {
+            parser: tsparser,
+        },
+        plugins: {
+            "@typescript-eslint": tseslint,
+            n,
+        },
+        rules: {
+            "no-unused-vars": "off",
             "@typescript-eslint/no-unused-vars": "warn",
             "@typescript-eslint/no-explicit-any": "off",
         },

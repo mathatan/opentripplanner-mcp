@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
- // Create server instance
+// Create server instance
 const server = new McpServer({
     name: "hello-world",
     version: "1.0.0",
@@ -39,6 +39,36 @@ server.tool(
     },
     helloToolHandler,
 );
+
+// Auto-register tools implemented in src/tools so the MCP server exposes them over stdio.
+// Each tool module exports a const like `geocodeAddress` with { name, handler, schema }.
+import { geocodeAddress } from "./tools/geocodeAddress.js";
+import { findStops } from "./tools/findStops.js";
+import { planTrip } from "./tools/planTrip.js";
+import { reverseGeocode } from "./tools/reverseGeocode.js";
+import { saveUserVariable } from "./tools/saveUserVariable.js";
+import { getUserVariables } from "./tools/getUserVariables.js";
+import { getDepartures } from "./tools/getDepartures.js";
+
+const toolsToRegister: Array<{ name: string; schema: any; handler: any }> = [
+    geocodeAddress as any,
+    findStops as any,
+    planTrip as any,
+    reverseGeocode as any,
+    saveUserVariable as any,
+    getUserVariables as any,
+    getDepartures as any,
+];
+
+for (const t of toolsToRegister) {
+    try {
+        server.tool(t.name, `Auto-registered tool ${t.name}`, t.schema ?? ({} as any), t.handler);
+    } catch (err) {
+        // Registration should not crash the server; log and continue.
+        // eslint-disable-next-line no-console
+        console.error(`Failed to register tool ${t?.name}:`, err);
+    }
+}
 
 // Main function to run the server
 async function main() {

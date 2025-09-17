@@ -1,5 +1,7 @@
 # OpenTripPlanner MCP Server Constitution (Memory Copy)
 
+**Version**: 1.0.2 | **Ratified**: 2025-01-27 | **Last Amended**: 2025-09-17
+
 ## Core Principles
 
 ### I. Test-First (NON-NEGOTIABLE)
@@ -29,6 +31,28 @@ Each tool MUST provide: Zod-validated inputs, graceful error objects (code + mes
 ### VII. Public Transit Data Integration
 
 Support: Routing API (GraphQL multimodal planning), Geocoding API (place/address search), User-defined variables (saved stops/routes/locations). Extensible for additional regions while defaulting to Finland coverage.
+
+### VIII. TypeScript & Schema Discipline
+
+All runtime validation, typing, and schema evolution follow a single-source-of-truth contract grounded in Zod. This principle ensures consistency, safety, and predictable change management across all MCP tools.
+
+- Single Source of Truth: Every validated shape lives in `src/schema/*`. Avoid ad-hoc inline `z.object` declarations in tools/services (except trivial local refinement with a TODO if it grows).
+- Type Derivation Only: Export pattern is `export const XSchema = ...` and `export type X = z.infer<typeof XSchema>;` — never hand-maintain parallel structural TypeScript types.
+- Strict Schemas: Use `.strict()` by default; any permissive schema must document rationale referencing a spec section.
+- No `any`: Zero implicit or explicit `any` (any temporary allowance must cite an issue + removal test). The project relies on strict TypeScript settings.
+- Exhaustive Unions: Use discriminated unions where practical; enforce exhaustiveness with `never` checks in switch statements.
+- Single Boundary Validation: Inputs/outputs are validated once at the tool boundary. Internal functions assume trusted inferred types – no redundant parsing.
+- Transform Discipline: `.transform()` only for deterministic enrichment (no mutation). Each transform requires tests: happy path, minimal input, edge/boundary, pre-validation failure.
+- Error & Warning Objects: Must conform to `ErrorSchema` / `WarningSchema`; adding a code requires failing test first + spec update if public-facing.
+- Naming Conventions: `PascalCaseSchema` for schemas; inferred type drops `Schema` suffix. Collection wrappers only get schemas if they add constraints (e.g., bounded length).
+- Re‑exports: A future `src/schema/index.ts` (when introduced) will aggregate public schemas; private helpers remain file-scoped or are exported with a leading underscore for tests.
+- Required Tests: Every schema has a `*.schema.test.ts` covering success + failure + transform behavior (Test-First: see Core Principle I).
+- Versioning Triggers: Field removals or type changes = breaking (major). Adding optional field = minor. Adding enum member = minor unless it breaks exhaustive consumer logic.
+- Performance Considerations: Avoid deep clone overhead inside transforms; prefer pure assembly from validated data.
+- Prefer Zod over Custom Guards: Custom type guards only when demonstrably faster or clearer (must include comment justification).
+- Deprecation Path: Mark deprecated fields with `@deprecated` comment + replacement guidance; removal deferred until next major.
+
+Deviation from this principle requires an explicit amendment and accompanying tests.
 
 ## Additional Constraints
 
@@ -163,5 +187,4 @@ New tools MUST document: purpose, input schema, output schema, added error codes
 ## Amendment Record
 
 - 1.0.1 (2025-09-15): Added MCP Tool Contract & Domain Model normative section.
-
-**Version**: 1.0.1 | **Ratified**: 2025-01-27 | **Last Amended**: 2025-09-15
+- 1.0.2 (2025-09-17): Introduced Clause 14 TypeScript & Zod Schema Standards; added dedicated section clarifying validation, typing, transforms, versioning triggers.

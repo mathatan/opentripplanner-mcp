@@ -117,7 +117,7 @@ otpSnippetsReferenced:
 ```graphql
 # Paginate stops by radius
 {
-   stopsByRadius(lat: 60.19924, lon: 24.94112, radius: 300, first: 2) {
+   stopsByRadius(lat: 60.19924, lon: 24.94112, radius: 500, first: 2) {
       edges {
          node {
             stop {

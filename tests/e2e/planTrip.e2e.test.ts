@@ -1,7 +1,24 @@
 import { serializeMessage } from "@modelcontextprotocol/sdk/shared/stdio.js";
-
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { spawn } from "node:child_process";
+
+/**
+ * RED e2e test for plan_trip
+ *
+ * This is an intentionally failing (RED) end-to-end scaffold that follows the
+ * style used in `tests/index.e2e.test.ts`. It:
+ *  - spawns the built server
+ *  - collects stdout into a buffer
+ *  - performs the MCP initialize handshake
+ *  - invokes the "plan_trip" tool (id = 1)
+ *  - waits for the response and asserts on the result (intentionally failing)
+ *
+ * Notes on framing:
+ *  - These tests assume the MCP server prints one JSON object per line to stdout.
+ *    If the server uses Content-Length framing or streams JSON pieces, replace
+ *    the simplistic line-per-JSON approach with a proper framing parser.
+ *  - Debug logging can be enabled with debugMode = true.
+ */
 
 let serverProcess: ReturnType<typeof spawn>;
 let stdoutData = "";
@@ -17,18 +34,34 @@ beforeAll(async () => {
             stdoutData += data.toString();
         });
     }
-    // Wait for server to be ready
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    // Wait for server to be ready by polling stdout for the readiness marker.
+    const readyMarker = "Hello World MCP Server running on stdio";
+    const startupTimeout = Number(process.env.E2E_STARTUP_TIMEOUT_MS ?? 5000);
+    const pollInterval = Number(process.env.E2E_STARTUP_POLL_MS ?? 100);
+    const waitUntil = Date.now() + startupTimeout;
+    while (Date.now() < waitUntil) {
+        if (stdoutData.includes(readyMarker)) break;
+        if (serverProcess.exitCode !== null) {
+            throw new Error(`Server process exited early with code ${serverProcess.exitCode}. stdout: ${stdoutData}`);
+        }
+        await new Promise((r) => setTimeout(r, pollInterval));
+    }
+    if (!stdoutData.includes(readyMarker)) {
+        if (serverProcess.exitCode !== null) {
+            throw new Error(`Server failed to start (exit ${serverProcess.exitCode}). stdout: ${stdoutData}`);
+        }
+        throw new Error(`Server did not become ready within ${startupTimeout}ms. stdout: ${stdoutData}`);
+    }
 });
 
 afterAll(() => {
     if (serverProcess) serverProcess.kill();
 });
 
-const debugMode = false; // Set to true to enable debug output
+const debugMode = false; // Set to true to enable verbose stdout logging
 
-describe("hello tool endpoint (e2e)", () => {
-    it("returns correct greeting via MCP stdio", async () => {
+describe("plan_trip tool (e2e)", () => {
+    it("invokes plan_trip and asserts itineraries exist (intentional RED)", async () => {
         // 1. Send MCP initialize handshake
         const initRequest = {
             method: "initialize",
@@ -46,7 +79,7 @@ describe("hello tool endpoint (e2e)", () => {
             throw new Error("serverProcess.stdin is null");
         }
 
-        // Wait for initialize response
+        // Wait for initialize response (10s timeout)
         await new Promise<void>((resolve, reject) => {
             const timeout = setTimeout(() => reject(new Error("No MCP initialize response")), 10000);
             const onData = () => {
@@ -71,12 +104,14 @@ describe("hello tool endpoint (e2e)", () => {
                             resolve();
                             return;
                         }
-                    } catch { /* intentionally ignored: parsing non-JSON lines from stdout */ }
+                    } catch {
+                        /* intentionally ignored: parsing non-JSON lines from stdout */
+                    }
                 }
             };
             if (serverProcess.stdout) {
                 serverProcess.stdout.on("data", onData);
-                // Immediately process any buffered data
+                // Process any buffered data immediately
                 onData();
             } else {
                 clearTimeout(timeout);
@@ -84,14 +119,31 @@ describe("hello tool endpoint (e2e)", () => {
             }
         });
 
-        // 2. Send tool invocation
+        // 2. Send tools/call request for plan_trip (id = 1)
         const request = {
             method: "tools/call",
             jsonrpc: "2.0" as const,
             id: 1,
             params: {
-                name: "hello",
-                arguments: { name: "TestUser" },
+                name: "plan_trip",
+                arguments: {
+                    origin: {
+                        type: "coords",
+                        value: { lat: 60.1699, lon: 24.9384 },
+                    },
+                    destination: {
+                        type: "coords",
+                        value: { lat: 60.2055, lon: 24.6559 },
+                    },
+                    when: {
+                        type: "depart",
+                        time: "now",
+                    },
+                    constraints: {
+                        optimize: "balanced",
+                        maxWalkingDistance: 1500,
+                    },
+                },
             },
         };
         if (serverProcess.stdin) {
@@ -100,14 +152,11 @@ describe("hello tool endpoint (e2e)", () => {
             throw new Error("serverProcess.stdin is null");
         }
 
-        // Wait for response
-        // MCP protocol assumption: This test assumes the server emits one JSON message per line.
-        // If the server switches to Content-Length framing or streaming, refactor this logic to use a proper framing parser.
-        // Do not use this approach for production protocol parsing.
-        const result = await new Promise<{ content: { text: string }[] }>((resolve, reject) => {
+        // Wait for response (10s timeout)
+        // This uses the same simplistic one-JSON-per-line parsing as other e2e tests.
+        const result: any = await new Promise<any>((resolve, reject) => {
             const timeout = setTimeout(() => reject(new Error("No response from MCP server")), 10000);
             const onData = () => {
-                // Try to parse last line as JSON
                 const lines = stdoutData.trim().split("\n");
                 for (const line of lines) {
                     if (debugMode && line.trim()) {
@@ -121,7 +170,7 @@ describe("hello tool endpoint (e2e)", () => {
                     if (!line.startsWith("{")) continue;
                     try {
                         const obj = JSON.parse(line);
-                        if (obj.id === 1 && obj.result && obj.result.content) {
+                        if (obj.id === 1 && obj.result) {
                             clearTimeout(timeout);
                             if (serverProcess.stdout) {
                                 serverProcess.stdout.off("data", onData);
@@ -129,7 +178,9 @@ describe("hello tool endpoint (e2e)", () => {
                             resolve(obj.result);
                             return;
                         }
-                    } catch { /* intentionally ignored: parsing non-JSON lines from stdout */ }
+                    } catch {
+                        /* intentionally ignored: parsing non-JSON lines from stdout */
+                    }
                 }
             };
             if (serverProcess.stdout) {
@@ -138,6 +189,9 @@ describe("hello tool endpoint (e2e)", () => {
                 reject(new Error("serverProcess.stdout is null"));
             }
         });
-        expect(result.content[0].text).toBe("Hello, TestUser!");
-    });
+
+        // Intentionally failing assertion to mark RED (scaffold)
+        // Replace with proper assertions once the tool/server is implemented.
+        expect(result.itineraries && result.itineraries.length > 0).toBe(true);
+    }, 20000);
 });

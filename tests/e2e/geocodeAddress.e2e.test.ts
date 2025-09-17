@@ -17,8 +17,24 @@ beforeAll(async () => {
             stdoutData += data.toString();
         });
     }
-    // Wait for server to be ready
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    // Wait for server to be ready by polling stdout for the readiness marker.
+    const readyMarker = "Hello World MCP Server running on stdio";
+    const startupTimeout = Number(process.env.E2E_STARTUP_TIMEOUT_MS ?? 5000);
+    const pollInterval = Number(process.env.E2E_STARTUP_POLL_MS ?? 100);
+    const waitUntil = Date.now() + startupTimeout;
+    while (Date.now() < waitUntil) {
+        if (stdoutData.includes(readyMarker)) break;
+        if (serverProcess.exitCode !== null) {
+            throw new Error(`Server process exited early with code ${serverProcess.exitCode}. stdout: ${stdoutData}`);
+        }
+        await new Promise((r) => setTimeout(r, pollInterval));
+    }
+    if (!stdoutData.includes(readyMarker)) {
+        if (serverProcess.exitCode !== null) {
+            throw new Error(`Server failed to start (exit ${serverProcess.exitCode}). stdout: ${stdoutData}`);
+        }
+        throw new Error(`Server did not become ready within ${startupTimeout}ms. stdout: ${stdoutData}`);
+    }
 });
 
 afterAll(() => {
@@ -27,8 +43,8 @@ afterAll(() => {
 
 const debugMode = false; // Set to true to enable debug output
 
-describe("hello tool endpoint (e2e)", () => {
-    it("returns correct greeting via MCP stdio", async () => {
+describe("geocode_address tool (e2e)", () => {
+    it("returns geocoding results via MCP stdio", async () => {
         // 1. Send MCP initialize handshake
         const initRequest = {
             method: "initialize",
@@ -71,7 +87,9 @@ describe("hello tool endpoint (e2e)", () => {
                             resolve();
                             return;
                         }
-                    } catch { /* intentionally ignored: parsing non-JSON lines from stdout */ }
+                    } catch {
+                        /* intentionally ignored: parsing non-JSON lines from stdout */
+                    }
                 }
             };
             if (serverProcess.stdout) {
@@ -90,8 +108,8 @@ describe("hello tool endpoint (e2e)", () => {
             jsonrpc: "2.0" as const,
             id: 1,
             params: {
-                name: "hello",
-                arguments: { name: "TestUser" },
+                name: "geocode_address",
+                arguments: { text: "kamppi", size: 5, language: "fi" },
             },
         };
         if (serverProcess.stdin) {
@@ -104,7 +122,7 @@ describe("hello tool endpoint (e2e)", () => {
         // MCP protocol assumption: This test assumes the server emits one JSON message per line.
         // If the server switches to Content-Length framing or streaming, refactor this logic to use a proper framing parser.
         // Do not use this approach for production protocol parsing.
-        const result = await new Promise<{ content: { text: string }[] }>((resolve, reject) => {
+        const result = await new Promise<any>((resolve, reject) => {
             const timeout = setTimeout(() => reject(new Error("No response from MCP server")), 10000);
             const onData = () => {
                 // Try to parse last line as JSON
@@ -121,7 +139,7 @@ describe("hello tool endpoint (e2e)", () => {
                     if (!line.startsWith("{")) continue;
                     try {
                         const obj = JSON.parse(line);
-                        if (obj.id === 1 && obj.result && obj.result.content) {
+                        if (obj.id === 1 && obj.result) {
                             clearTimeout(timeout);
                             if (serverProcess.stdout) {
                                 serverProcess.stdout.off("data", onData);
@@ -129,7 +147,9 @@ describe("hello tool endpoint (e2e)", () => {
                             resolve(obj.result);
                             return;
                         }
-                    } catch { /* intentionally ignored: parsing non-JSON lines from stdout */ }
+                    } catch {
+                        /* intentionally ignored: parsing non-JSON lines from stdout */
+                    }
                 }
             };
             if (serverProcess.stdout) {
@@ -138,6 +158,9 @@ describe("hello tool endpoint (e2e)", () => {
                 reject(new Error("serverProcess.stdout is null"));
             }
         });
-        expect(result.content[0].text).toBe("Hello, TestUser!");
-    });
+
+        expect(Array.isArray(result.results)).toBe(true);
+        expect(result.results.length).toBeGreaterThan(0);
+        expect(typeof result.truncated).toBe("boolean");
+    }, 20000);
 });

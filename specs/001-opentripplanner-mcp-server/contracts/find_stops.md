@@ -37,7 +37,7 @@ StopSummary {
 
 ## Business Rules
 
-1. Default radius 300m; if >3000 reject validation.
+1. Default radius 500m; if >3000 reject validation.
 2. Upstream query ordered by distance; ensure stable sort by distance then id.
 3. If `maxResults` > 25, still request but truncate output to 25, add warning `truncated-results` and `stopsTruncatedFrom` meta (future) TBD.
 4. If `textFilter` provided perform case-insensitive substring filter after upstream results; if zero after filter return `validation-error`? (Decision: return empty list with warning `no-matches-after-filter`).

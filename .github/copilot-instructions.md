@@ -185,6 +185,7 @@ Apply WITHOUT deviation; cite clause numbers (e.g., C1, C2) in PR descriptions y
 11 (Coverage Targets – post transit). Critical infra (rate limiter, retry, itinerary transform) ≥95% branch; overall ≥85% lines or justify.
 12 (Security & Privacy). No PII; persist only ephemeral in-memory user variables (24h inactivity TTL) until persistence task approved.
 13 (Search Discipline). Avoid broad searches unless data missing/contradictory; fix docs instead of ad-hoc divergence.
+14 (TypeScript & Schema Discipline). All runtime validation originates from Zod schemas in `src/schema`; types for tools/services MUST be derived via `z.infer`. No `any` or implicit `any`; `tsconfig` strict settings are authoritative. Discriminated unions must be exhaustive (enable `never` checking); avoid duplicative manual validation. Tool inputs/outputs validated exactly once at boundary, internal logic operates on inferred types. Adding/changing a schema requires: failing test first (C1), spec/contract update if public, version bump if breaking (C7), and regeneration of any dependent tests. Prefer `type` aliases over `interface` unless declaration merging intentionally required. Do not export partially applied schemas—export full `const XSchema` + `export type X = z.infer<typeof XSchema>` pattern.
 
 Conflict Rule: If a previous section conflicts with clauses here, this section prevails. Keep edits concise to preserve brevity.
 
