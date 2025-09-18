@@ -40,7 +40,7 @@ correlationId: string (UUID)
 ## Business Rules
 
 1. Overwrite deterministic; summary of previous returned when replaced.
-2. TTL refresh on write & read. Expiration after 24h inactivity (swept lazily on access).
+2. TTL refresh on write & read. Expiration after 24h inactivity (swept lazily on access); writes/read reset TTL.
 3. Flat namespace per session; keys are case-sensitive.
 4. Location type value validated like Coordinate schema; optional name/address carried through to LocationRef if present.
 5. Preference type value must be JSON-serializable (reject functions / undefined leaves).

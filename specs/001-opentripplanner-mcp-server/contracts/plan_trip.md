@@ -22,6 +22,7 @@ Compute multimodal itineraries with realtime awareness between two points or sav
 | constraints.accessibility.lowWalkingDistance | boolean | – | false | Enables post-filter annotation |
 | constraints.language | string | – | en | Allowed: fi, sv, en (fallback chain) |
 | limit | number | No | 2 | 1..3 (after dedupe) |
+| first | number | No | 2 | 1..5 (soft cap hint to upstream; used for initial query size) |
 | includeDisruptionAlt | boolean | No | true | Attempt relaxed alt search if disruption detected |
 
 Origin/Destination Shape:
@@ -60,6 +61,8 @@ constraints?: {
   language?: 'fi' | 'sv' | 'en'
 } | null
 ```
+
+Note: `searchWindowMinutes?: number` may be provided inside `constraints` as an optional hint to upstream (typical 30..180). It is not required in Phase 1 but honored when present.
 
 Rules & Defaults:
 

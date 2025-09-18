@@ -40,9 +40,10 @@ const RawUserVariable = z.preprocess(
                 .optional(),
             value: z.unknown(),
             sessionId: z.string().optional(),
-            createdAt: z.string().optional(),
-            updatedAt: z.string().optional(),
-            expiresAt: z.string().optional(),
+            // If provided, timestamps must be ISO 8601 with offset; transform will normalize when missing
+            createdAt: z.string().datetime({ offset: true }).optional(),
+            updatedAt: z.string().datetime({ offset: true }).optional(),
+            expiresAt: z.string().datetime({ offset: true }).optional(),
             ttlSeconds: z.number().nullable().optional(),
         })
         .strict(),
@@ -62,16 +63,23 @@ const UserVariableValidated = RawUserVariable.superRefine((obj, ctx) => {
             });
             return;
         }
-        const coord = (obj.value as any).coordinate;
-        if (coord === undefined) {
+
+        // Accept either { coordinate: { lat, lon } } or legacy { lat, lon, name?, address? }
+        const possibleCoord =
+            (obj.value as any).coordinate ??
+            ((obj.value as any).lat !== undefined && (obj.value as any).lon !== undefined
+                ? { lat: (obj.value as any).lat, lon: (obj.value as any).lon }
+                : undefined);
+        if (!possibleCoord) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ["value", "coordinate"],
-                message: "missing coordinate for location value",
+                message: "missing coordinate for location value (expected coordinate or lat/lon keys)",
             });
             return;
         }
-        const parsed = CoordinateSchema.safeParse(coord);
+
+        const parsed = CoordinateSchema.safeParse(possibleCoord);
         if (!parsed.success) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,

@@ -12,8 +12,8 @@ Discover nearby stops (and optionally stations / bike parks) from coordinates & 
 |-------|------|----------|---------|-------|
 | coordinate.lat | number | Yes | – | -90..90 |
 | coordinate.lon | number | Yes | – | -180..180 |
-| radius | number | No | 300 | 1..3000 meters |
-| maxResults | number | No | 10 | 1..50 (output truncated at 25 with warning) |
+| radius | number | No | 500 | 1..3000 meters |
+| maxResults | number | No | 10 | 1..50 (request allowed; output truncated at 25 with warning) |
 | textFilter | string | No | – | Case-insensitive substring match applied client-side |
 | language | string | No | en | fi \| sv \| en |
 | includeModes | TransitMode[] | No | all | Filters upstream query if provided |
@@ -39,7 +39,7 @@ StopSummary {
 
 1. Default radius 500m; if >3000 reject validation.
 2. Upstream query ordered by distance; ensure stable sort by distance then id.
-3. If `maxResults` > 25, still request but truncate output to 25, add warning `truncated-results` and `stopsTruncatedFrom` meta (future) TBD.
+3. If `maxResults` > 25, still request but truncate output to 25, add warning `truncated-results` and include `stopsTruncatedFrom` meta when available (future) TBD.
 4. If `textFilter` provided perform case-insensitive substring filter after upstream results; if zero after filter return `validation-error`? (Decision: return empty list with warning `no-matches-after-filter`).
 5. Modes filter: if provided, remove stops whose mode set intersection empty.
 

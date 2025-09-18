@@ -11,7 +11,7 @@ Forward geocoding translating text query to coordinate candidates with disambigu
 | Field | Type | Required | Default | Notes |
 |-------|------|----------|---------|-------|
 | text | string | Yes | – | Trimmed; 1..200 chars |
-| size | number | No | 10 | 1..40 (hard cap) |
+| size | number | No | 10 | 1..40 (hard cap; requests >40 are capped and `truncated` set)
 | language | string | No | en | fi \| sv \| en |
 | focus.lat | number | No | – | Used for distance tiebreak |
 | focus.lon | number | No | – | — |
@@ -36,6 +36,13 @@ GeocodeResult {
   label?: string // short display label (may mirror name)
   address?: string // formatted single-line address if provider returns (primarily when type='address')
   boundingBox?: { minLon:number, maxLon:number, minLat:number, maxLat:number }
+  // Pelias-aligned optional metadata
+  gid?: string
+  rawLayer?: string
+  rawSource?: string
+  sourceId?: string
+  distanceKm?: number
+  zones?: string[]
 }
 ```
 
@@ -45,7 +52,7 @@ GeocodeResult {
 2. Primary ordering: provider relevance (confidence desc). Secondary: distance to focus ascending if provided and confidence equal within 0.01.
 3. If zero results, respond with `geocode-no-results` error code.
 4. Normalize confidence into 0..1 float (if provider returns 0..100 divide by 100).
-5. Map provider layers to `type` (address|poi|stop) else default `poi`.
+5. Map provider layers to `type` (address|poi|stop) else default `poi`. Preserve Pelias metadata where available into `gid`, `rawLayer`, `rawSource`, `sourceId`, `distanceKm`, and `zones`.
 
 ## Error Codes
 

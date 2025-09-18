@@ -21,7 +21,7 @@ Retrieve upcoming departures for a stop id (or saved variable mapping to stop id
 stopId: string
 stopName?: string
 realtimeUsed: boolean
-dataFreshness: string (ISO 8601)
+dataFreshness: string (ISO 8601) // timestamp of freshest realtime update or requestReceivedTime
 departures: Departure[] (sorted ascending by realtimeTime|scheduledTime)
 correlationId: string (UUID)
 warnings?: Warning[]
@@ -56,7 +56,7 @@ platform?: string
 1. Compute `delaySeconds = (realtimeTime - scheduledTime)` in seconds if both present.
 2. Status precedence: cancelled > delayed (>60 or < -60) > on_time (abs delay <=60) > scheduled_only (no realtimeTime).
 3. `realtimeUsed=true` if any departure has realtimeTime or cancellation flag; else false.
-4. Sort by `realtimeTime` if present else `scheduledTime` ascending; apply limit after sorting.
+4. Sort by `realtimeTime` if present else `scheduledTime` ascending; apply `limit` after sorting and any post-filtering.
 5. If upstream returns more than `limit`, add warning `truncated-results`.
 6. `dataFreshness` = max(all realtime update timestamps, requestReceivedTime).
 

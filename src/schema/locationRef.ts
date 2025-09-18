@@ -18,26 +18,24 @@ export const RawSourceEnum = z.enum(["geocode", "user-variable", "input"] as con
  */
 export const LocationRefSchema = z.preprocess(
     (inp) => {
-        // Coerce legacy shapes: map 'label' -> 'name' and infer 'type' when possible
-        if (inp && typeof inp === "object") {
-            // @ts-ignore
-            if (!("type" in inp)) {
-                // @ts-ignore
-                if ("coordinate" in inp) inp.type = "coordinate";
-                // @ts-ignore
-                else if ("id" in inp) inp.type = "stopId";
-            }
-            // @ts-ignore
-            if ("label" in inp) {
-                // preserve explicit name if present, otherwise copy from label
-                // @ts-ignore
-                if (!("name" in inp)) inp.name = inp.label;
-                // remove legacy key to satisfy .strict()
-                // @ts-ignore
-                delete inp.label;
-            }
+        // Do not mutate the original input. Build a normalized shallow copy.
+        if (!inp || typeof inp !== "object") return inp;
+
+        const copy: Record<string, any> = { ...(inp as Record<string, any>) };
+
+        // If no explicit discriminant, try to infer it from provided keys
+        if (!("type" in copy)) {
+            if ("coordinate" in copy || ("lat" in copy && "lon" in copy)) copy.type = "coordinate";
+            else if ("id" in copy) copy.type = "stopId";
         }
-        return inp;
+
+        // Preserve legacy `label` as an optional field (do not delete). If name missing, keep label available for downstream logic.
+        // Trim single-line address if present
+        if ("address" in copy && typeof copy.address === "string") {
+            copy.address = copy.address.trim();
+        }
+
+        return copy;
     },
     z
         .discriminatedUnion("type", [
@@ -45,13 +43,13 @@ export const LocationRefSchema = z.preprocess(
                 .object({
                     type: z.literal("coordinate"),
                     coordinate: CoordinateSchema,
+                    // lightweight mnemonic or client label preserved
+                    label: z.string().optional(),
                     name: z.string().optional(),
                     address: z
-                        .preprocess(
-                            (val) => (typeof val === "string" ? val.trim() : val),
-                            z.string().refine((s) => !s.includes("\n"), { message: "Address must be single-line" }),
-                        )
-                        .optional(),
+                        .string()
+                        .optional()
+                        .refine((s) => !s || !s.includes("\n"), { message: "Address must be single-line" }),
                     rawSource: RawSourceEnum.optional(),
                 })
                 .strict(),
@@ -59,11 +57,11 @@ export const LocationRefSchema = z.preprocess(
                 .object({
                     type: z.literal("stopId"),
                     id: z.string(),
+                    label: z.string().optional(),
                     name: z.string().optional(),
                     rawSource: RawSourceEnum.optional(),
                 })
                 .strict(),
-            // Add other variants as specified in data-model.md
         ])
         .describe("Location reference schema"),
 );

@@ -31,6 +31,13 @@ GeocodeResult {
   language?: string
   label?: string
   address?: string // formatted address if provider returns (common when type='address')
+  // Pelias-aligned optional metadata preserved when available
+  gid?: string
+  rawLayer?: string
+  rawSource?: string
+  sourceId?: string
+  distanceKm?: number
+  zones?: string[]
 }
 ```
 
@@ -38,7 +45,7 @@ GeocodeResult {
 
 1. First candidate becomes `result` (highest confidence ordering from provider).
 2. If no candidates, return `geocode-no-results` error.
-3. If requested language absent, attempt fallback: requested -> fi -> en.
+3. If requested language absent, attempt fallback: requested -> fi -> sv -> en (repository-level fallback chain); document fallback in warnings when applied.
 4. Normalize coordinates & confidence same as forward geocode.
 
 ## Error Codes

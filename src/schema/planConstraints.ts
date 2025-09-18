@@ -7,30 +7,36 @@
  *
  * Note: This module is side-effect free and ESM.
  */
-import { z } from 'zod';
+import { z } from "zod";
 
 export const AccessibilityPrefsSchema = z
-  .object({
-    stepFree: z.boolean().optional(),
-    fewTransfers: z.boolean().optional(),
-    lowWalkingDistance: z.boolean().optional(),
-    prioritizeLowFloor: z.boolean().optional(),
-  })
-  .strict();
+    .object({
+        // Basic wheelchair preference; maps to OTP wheelchair accessibility flag
+        wheelchair: z.boolean().optional(),
+        stepFree: z.boolean().optional(),
+        fewTransfers: z.boolean().optional(),
+        lowWalkingDistance: z.boolean().optional(),
+        prioritizeLowFloor: z.boolean().optional(),
+    })
+    .strict();
 
 const _PlanConstraintsBase = z
-  .object({
-    // integer >= 0, <= 3000, default 1500
-    maxWalkingDistance: z.number().int().nonnegative().max(3000).default(1500),
-    // integer >= 0, <= 8, default 4
-    maxTransfers: z.number().int().nonnegative().max(8).default(4),
-    // allowed optimization strategies with default (spec: balanced | few_transfers | shortest_time)
-    optimize: z.enum(['balanced', 'few_transfers', 'shortest_time']).default('balanced'),
-    accessibilityPrefs: AccessibilityPrefsSchema.optional(),
-    // optional language for constraints per spec
-    language: z.enum(['fi', 'sv', 'en']).optional(),
-  })
-  .strict();
+    .object({
+        // integer >= 0, <= 3000, default 1500
+        maxWalkingDistance: z.number().int().nonnegative().max(3000).default(1500),
+        // integer >= 0, <= 8, default 4
+        maxTransfers: z.number().int().nonnegative().max(8).default(4),
+        // allowed optimization strategies with default (spec: balanced | few_transfers | shortest_time)
+        optimize: z.enum(["balanced", "few_transfers", "shortest_time"]).default("balanced"),
+        accessibilityPrefs: AccessibilityPrefsSchema.optional(),
+        // Soft cap hint to upstream: 1..5, default 2
+        first: z.number().int().min(1).max(5).default(2),
+        // Optional hint for upstream search window in minutes (typical 30..180)
+        searchWindowMinutes: z.number().int().min(1).optional(),
+        // optional language for constraints per spec
+        language: z.enum(["fi", "sv", "en"]).optional(),
+    })
+    .strict();
 
 /**
  * The exported PlanConstraintsSchema applies validation (via _PlanConstraintsBase)
@@ -41,11 +47,11 @@ const _PlanConstraintsBase = z
  * we attempt to enrich the output.
  */
 export const PlanConstraintsSchema = _PlanConstraintsBase.transform((val) => {
-  const warnings: Array<{ code: string }> = [];
-  if (val.accessibilityPrefs?.prioritizeLowFloor === true) {
-    warnings.push({ code: 'unsupported-accessibility-flag' });
-  }
-  return { ...val, warnings };
+    const warnings: Array<{ code: string }> = [];
+    if (val.accessibilityPrefs?.prioritizeLowFloor === true) {
+        warnings.push({ code: "unsupported-accessibility-flag" });
+    }
+    return { ...val, warnings };
 });
 
 export type AccessibilityPrefs = z.infer<typeof AccessibilityPrefsSchema>;
