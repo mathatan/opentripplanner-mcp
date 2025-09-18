@@ -30,7 +30,7 @@ For each phase file (tasks-phase-1..tasks-phase-9.md):
   - Path: `specs/001-opentripplanner-mcp-server/tasks-phase-4.md`
 - [x] T005 Analyze + Fix `tasks-phase-5.md`
   - Path: `specs/001-opentripplanner-mcp-server/tasks-phase-5.md`
-- [ ] T006 Analyze + Fix `tasks-phase-6.md`
+- [x] T006 Analyze + Fix `tasks-phase-6.md`
   - Path: `specs/001-opentripplanner-mcp-server/tasks-phase-6.md`
 - [ ] T007 Analyze + Fix `tasks-phase-7.md`
   - Path: `specs/001-opentripplanner-mcp-server/tasks-phase-7.md`

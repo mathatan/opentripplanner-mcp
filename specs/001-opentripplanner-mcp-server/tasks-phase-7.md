@@ -8,19 +8,19 @@ Integrate all implemented services & tools through end-to-end (E2E) tests, add s
 
 ## Task List
 
-| ID  | P? | Task | File / Path | Notes |
-|-----|----|------|-------------|-------|
-| T065 |  | Flesh out e2e plan_trip test | `tests/e2e/plan_trip.e2e.test.ts` | Add itinerary shape assertions, multi‑leg, error path. |
-| T066 | P | Flesh out e2e geocode_address test | `tests/e2e/geocodeAddress.e2e.test.ts` | Forward + size truncation + error case. |
-| T067 | P | Flesh out e2e user variables roundtrip test | `tests/e2e/userVariables.e2e.test.ts` | save → get list ordering & updatedAt monotonicity. |
-| T068 | P | Add e2e find_stops test | `tests/e2e/find_stops.e2e.test.ts` | New file; search radius + limit + no-results. |
-| T069 | P | Add e2e get_departures test | `tests/e2e/get_departures.e2e.test.ts` | Realtime vs scheduled mapping, delay threshold. |
-| T070 |  | Rate limit stress test integration | `tests/integration/rateLimit.stress.test.ts` | Parallel invocations assert token bucket depletion & refill. |
-| T071 | P | Error path integration test (401/429/timeout mocks) | `tests/integration/errorPaths.test.ts` | Validate mapped error codes + retry attempts count. |
-| T072 | P | Performance baseline test (p50/p95 timings) | `tests/perf/performance.test.ts` | Mock upstream latency distribution; assert under thresholds. |
-| T073 | P | Cache hit/miss integration test | `tests/integration/cacheBehavior.test.ts` | Warm vs cold timings & collapsed requests (≤500ms). |
+| ID   | Status   | Task | Acceptance Criteria | Spec / Doc Trace |
+|------|----------|------|---------------------|------------------|
+| T065 | [ ]      | Flesh out e2e plan_trip test (File: `tests/e2e/plan_trip.e2e.test.ts`) — Add itinerary shape assertions, multi‑leg, error path. | See "Per-Task Specific Success Conditions" for T065. | This document: Per-Task Specific Success Conditions; E2E Harness Requirements. |
+| T066 | [ ] [P]  | Flesh out e2e geocode_address test (File: `tests/e2e/geocodeAddress.e2e.test.ts`) — Forward + size truncation + error case. | See "Per-Task Specific Success Conditions" for T066. | This document: Per-Task Specific Success Conditions; E2E Harness Requirements. |
+| T067 | [ ] [P]  | Flesh out e2e user variables roundtrip test (File: `tests/e2e/userVariables.e2e.test.ts`) — save → get list ordering & updatedAt monotonicity. | See "Per-Task Specific Success Conditions" for T067. | This document: Per-Task Specific Success Conditions. |
+| T068 | [ ] [P]  | Add e2e find_stops test (File: `tests/e2e/find_stops.e2e.test.ts`) — New file; search radius + limit + no-results. | See "Per-Task Specific Success Conditions" for T068. | This document: Per-Task Specific Success Conditions. |
+| T069 | [ ] [P]  | Add e2e get_departures test (File: `tests/e2e/get_departures.e2e.test.ts`) — Realtime vs scheduled mapping, delay threshold. | See "Per-Task Specific Success Conditions" for T069. | This document: Per-Task Specific Success Conditions. |
+| T070 | [ ]      | Rate limit stress test integration (File: `tests/integration/rateLimit.stress.test.ts`) — Parallel invocations assert token bucket depletion & refill. | See "Per-Task Specific Success Conditions" for T070. | This document: Stress Test Strategy (Rate Limiter). |
+| T071 | [ ] [P]  | Error path integration test (401/429/timeout mocks) (File: `tests/integration/errorPaths.test.ts`) — Validate mapped error codes + retry attempts count. | See "Per-Task Specific Success Conditions" for T071. | This document: Retry Behavior Integration. |
+| T072 | [ ] [P]  | Performance baseline test (p50/p95 timings) (File: `tests/perf/performance.test.ts`) — Mock upstream latency distribution; assert under thresholds. | See "Per-Task Specific Success Conditions" for T072. | This document: Performance Metrics (Mocked). |
+| T073 | [ ] [P]  | Cache hit/miss integration test (File: `tests/integration/cacheBehavior.test.ts`) — Warm vs cold timings & collapsed requests (≤500ms). | See "Per-Task Specific Success Conditions" for T073. | This document: Cache Behavior Expectations. |
 
-Legend: P = Parallelizable (can implement in any order after base E2E harness). Non-P tasks set sequencing expectations.
+Legend: [ ] Pending | [P] Parallel-safe
 
 ## E2E Harness Requirements
 

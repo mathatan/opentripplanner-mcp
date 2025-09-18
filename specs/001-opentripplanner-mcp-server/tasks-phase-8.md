@@ -8,14 +8,14 @@ Produce comprehensive, user & contributor‑facing documentation that is synchro
 
 ## Task List
 
-| ID  | P? | Task | File / Path | Notes |
-|-----|----|------|-------------|-------|
-| T074 |  | Update quickstart examples for all tools | `specs/001-opentripplanner-mcp-server/quickstart.md` | Include plan_trip, geocode_address, reverse_geocode, find_stops, get_departures, user vars. |
-| T075 | P | Generate/hand-write schema reference | `docs/schema-reference.md` | Derive field tables from Zod schemas; link to source paths. |
-| T076 | P | Add constitution audit mapping | `docs/constitution-audit.md` | Clause → file(s)/test(s)/status table. |
-| T077 | P | Update README with tool usage | `README.md` | Add invocation examples & build/lint/test workflow. |
+| ID   | Status   | Task | Acceptance Criteria | Spec / Doc Trace |
+|------|----------|------|---------------------|------------------|
+| T074 | [ ]      | Update quickstart examples for all tools (File: `specs/001-opentripplanner-mcp-server/quickstart.md`) — Include plan_trip, geocode_address, reverse_geocode, find_stops, get_departures, user vars. | See "Per-Task Success Details" for T074. | This document: Per-Task Success Details. |
+| T075 | [ ] [P]  | Generate/hand-write schema reference (File: `docs/schema-reference.md`) — Derive field tables from Zod schemas; link to source paths. | See "Per-Task Success Details" for T075. | This document: Schema Reference Structure; Per-Task Success Details. |
+| T076 | [ ] [P]  | Add constitution audit mapping (File: `docs/constitution-audit.md`) — Clause → file(s)/test(s)/status table. | See "Per-Task Success Details" for T076. | This document: Constitution Audit. |
+| T077 | [ ] [P]  | Update README with tool usage (File: `README.md`) — Add invocation examples & build/lint/test workflow. | See "Per-Task Success Details" for T077. | This document: README Enhancements. |
 
-Legend: P = Parallelizable.
+Legend: [ ] Pending | [P] Parallel-safe
 
 ## Documentation Principles
 

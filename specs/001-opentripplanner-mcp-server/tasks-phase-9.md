@@ -8,18 +8,18 @@ Elevate reliability, security posture, and maintainability through fuzzing, soak
 
 ## Task List
 
-| ID  | P? | Task | File / Path | Notes |
-|-----|----|------|-------------|-------|
-| T078 |  | Add fuzz validation test suite | `tests/fuzz/validationFuzz.test.ts` | Random invalid inputs yield `validation-error`, never crash. |
-| T079 | P | Add soak test (1k sequential plan_trip) | `tests/soak/planTripSoak.test.ts` | Detect memory growth; measure avg latency drift. |
-| T080 | P | Security/dependency audit test | `tests/security/audit.test.ts` | Executes `pnpm audit`; skip if offline/env var set. |
-| T081 | P | Coverage threshold enforcement | `package.json` + config | Vitest thresholds lines/branches; failing gate breaks CI. |
-| T082 | P | Refactor constants duplication | `src/constants.ts` | Extract shared numeric/string literals (rate limits, retry). |
-| T083 | P | Manual exploratory scenarios doc | `docs/manual-test-scenarios.md` | Scripted prompts + expected high-level outcomes. |
-| T084 | P | Ensure all tool error paths add correlationId & warnings propagate | spot updates tests/* | Add assertions; backfill missing fields if implemented. |
-| T085 |  | Version bump + CHANGELOG | `package.json`, `CHANGELOG.md` | Set version 0.1.0 & summarize features + constraints. |
+| ID   | Status   | Task | Acceptance Criteria | Spec / Doc Trace |
+|------|----------|------|---------------------|------------------|
+| T078 | [ ]      | Add fuzz validation test suite (File: `tests/fuzz/validationFuzz.test.ts`) — Random invalid inputs yield `validation-error`, never crash. | See "Per-Task Success Details" for T078. | This document: Fuzz Testing Strategy; Per-Task Success Details. |
+| T079 | [ ] [P]  | Add soak test (1k sequential plan_trip) (File: `tests/soak/planTripSoak.test.ts`) — Detect memory growth; measure avg latency drift. | See "Per-Task Success Details" for T079. | This document: Soak Test Strategy; Per-Task Success Details. |
+| T080 | [ ] [P]  | Security/dependency audit test (File: `tests/security/audit.test.ts`) — Executes `pnpm audit`; skip if offline/env var set. | See "Per-Task Success Details" for T080. | This document: Security / Dependency Audit; Per-Task Success Details. |
+| T081 | [ ] [P]  | Coverage threshold enforcement (Files: `package.json` + config) — Vitest thresholds lines/branches; failing gate breaks CI. | See "Per-Task Success Details" for T081. | This document: Coverage Gate; Per-Task Success Details. |
+| T082 | [ ] [P]  | Refactor constants duplication (File: `src/constants.ts`) — Extract shared numeric/string literals (rate limits, retry). | See "Per-Task Success Details" for T082. | This document: Constants Refactor; Per-Task Success Details. |
+| T083 | [ ] [P]  | Manual exploratory scenarios doc (File: `docs/manual-test-scenarios.md`) — Scripted prompts + expected high-level outcomes. | See "Per-Task Success Details" for T083. | This document: Manual Exploratory Scenarios; Per-Task Success Details. |
+| T084 | [ ] [P]  | Ensure all tool error paths add correlationId & warnings propagate (Files: spot updates tests/*) — Add assertions; backfill missing fields if implemented. | See "Per-Task Success Details" for T084. | This document: Error Path Consistency; Per-Task Success Details. |
+| T085 | [ ]      | Version bump + CHANGELOG (Files: `package.json`, `CHANGELOG.md`) — Set version 0.1.0 & summarize features + constraints. | See "Per-Task Success Details" for T085. | This document: Version Bump & Changelog; Per-Task Success Details. |
 
-Legend: P = Parallelizable.
+Legend: [ ] Pending | [P] Parallel-safe
 
 ## Fuzz Testing Strategy (T078)
 

@@ -23,14 +23,14 @@ Legend: [ ] Pending | [P] Parallel-safe
 
 Algorithm Steps:
 
-1. For each itinerary compute fingerprint: xxHash of (sorted leg sequence: mode|line|fromStopId|toStopId) + time bucket (startTime rounded down to 120s).
+1. For each itinerary compute fingerprint: SHA1 (Node crypto) of the concatenated, sorted leg sequence (mode|line|fromStopId|toStopId) plus a time bucket (startTime rounded down to 120s). Using built-in SHA1 avoids extra native dependencies; if xxHash is later preferred, open an implementation decision issue documenting trade-offs and add benchmark tests.
 2. Maintain Map<fingerprint, keptIndex>.
 3. On collision: first verify itineraries are actually similar (not hash collision), then compare durationSeconds & number of transfers. Keep itinerary with lower transfers; if equal, lower duration; mark losing itinerary with `meta.deduplicatedFrom = keptFingerprint` and exclude from final list.
 4. Expose count of removed itineraries via `meta.deduplicatedCount` (optional).
 
 Edge Cases: If two itineraries identical except small departure time (<120s) they collapse; adjust bucket size with TODO if false positives reported.
 
-Performance: O(n) hashing; SHA1 over small concatenated string; negligible vs network latency.
+Performance: O(n) hashing; compute SHA1 over a small concatenated string (built-in crypto). Hashing cost is negligible relative to network latency.
 
 ## Realtime Aggregation & scheduleType (T060)
 
