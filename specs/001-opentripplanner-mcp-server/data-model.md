@@ -12,6 +12,11 @@ This document formalizes the core entities, invariants, and Zod schema contract 
 - Minimal shape required to satisfy tool contract; optional provider-specific metadata gated under `_raw?` if needed later.
 - Every top-level tool response includes: `correlationId`, `warnings?[]`, and (if realtime-capable) `dataFreshness`, `realtimeUsed`.
 
+Scope & compatibility:
+
+- Phase 1 targets Digitransit (OTP 2.x GTFS GraphQL) + Pelias Geocoding APIs. We expose a compact, stable contract and map richer upstream fields into optional, clearly prefixed properties when useful.
+- Pagination primitives in OTP (`planConnection.first/after/searchWindow`) are not exposed in Phase 1 tools; instead we return a small fixed set of itineraries with internal heuristics. We may surface cursors in a later phase.
+
 ## Entity Schemas
 
 ### Error
@@ -72,11 +77,14 @@ maxWalkingDistance: number (meters, default 1500, <= 3000)
 maxTransfers: number (default 4, <= 8)
 accessibility?: AccessibilityPrefs
 language?: 'fi' | 'sv' | 'en'
+first?: number (default 2, allowed 1..5) // soft cap; we return few itineraries by design in Phase 1
+searchWindowMinutes?: number (optional; typical 30..180) // hint to upstream OTP; Phase 1 may ignore
 ```
 
 ### AccessibilityPrefs
 
 ```text
+wheelchair?: boolean // enables wheelchair-aware planning; mapped to OTP wheelchairAccessibility
 stepFree?: boolean
 fewTransfers?: boolean (maps to optimize override maybe)
 lowWalkingDistance?: boolean
@@ -112,6 +120,8 @@ tripId?: string
 realtimeDelaySeconds?: number // positive or negative
 status?: 'on_time' | 'delayed' | 'cancelled' | 'scheduled_only'
 disruptionNote?: string
+realtimeState?: 'updated' | 'scheduled' | 'no_data' // mapped from OTP leg.realtimeState where available
+lastRealtimeUpdate?: string (ISO) // if known from upstream
 ```
 
 ### TransitMode (enum)
@@ -167,6 +177,7 @@ results: GeocodeResult[]
 truncated?: boolean
 warnings?: Warning[]
 correlationId: string
+size?: number (requested size; default 10, max 40; requests >40 are capped to 40 with a truncated warning)
 ```
 
 ### GeocodeResult
@@ -181,6 +192,11 @@ boundingBox?: BoundingBox
 rawLayer?: string
 rawSource?: string
 address?: string // formatted address (if type=address) else omitted or sometimes provided for POI
+label?: string // display label from geocoder, if provided
+distanceKm?: number // distance from bias/focus point in kilometers, if provided
+gid?: string // pelias composite id (layer:source:id)
+sourceId?: string // source-specific id if available
+zones?: string[] // ticket zones if requested
 ```
 
 ### BoundingBox
@@ -255,9 +271,18 @@ Generate itinerary fingerprint: `sha1(legs.map(l=>`${l.mode}|${l.line||''}|${l.f
 
 - Accept `language` in constraints; forward as `Accept-Language` header for GraphQL, `lang` param for geocoding. Fallback chain: requested -> fi -> en.
 
+Language and locale expectations:
+
+- On geocoding, upstream may return a `lang` property per feature and localized `label`. We populate `GeocodeResult.language?` and `label?` when provided and do not synthesize translations.
+
 ## Data Freshness Calculation
 
 - For plan: gather leg realtime timestamps or delays; if any realtime present → scheduleType realtime|mixed. `dataFreshness` = max(lastUpdateTime, now()) if none available.
+
+Realtime expectations:
+
+- `realtimeUsed` is derived from OTP leg-level realtimeState and estimated times. If the last realtime update age exceeds ~30s, we still return the itinerary but include a `realtime-missing` warning at response level.
+- Leg `realtimeState?` is mapped to a coarse enum: updated|scheduled|no_data to avoid leaking upstream enum changes.
 
 ## Accessibility Handling
 
@@ -306,6 +331,7 @@ Generate itinerary fingerprint: `sha1(legs.map(l=>`${l.mode}|${l.line||''}|${l.f
 | rate-limited | Upstream 429 or local limiter engaged |
 | network-error | Transport failure / abort |
 | geocode-no-results | Geocode query returned zero candidates |
+| realtime-missing | Realtime feed missing or stale beyond freshness threshold |
 
 ## Constitution Alignment
 
@@ -320,3 +346,27 @@ Generate itinerary fingerprint: `sha1(legs.map(l=>`${l.mode}|${l.line||''}|${l.f
 - Scooter rental extra query: deferred; schema leaves extension via `_raw?` if needed later.
 
 Status: Final (Phase 1 complete)
+
+---
+
+## OTP/Pelias Mapping Notes (Informative)
+
+This section clarifies how fields map to upstream APIs and sets explicit constraints for Phase 1. It is non-normative but must remain consistent with the shapes above.
+
+- Routing (OTP GraphQL):
+  - We call `planConnection` with origin/destination coordinates and a small `first` value (usually 2). Cursor pagination (`after/before`) is not exposed in Phase 1 responses.
+  - Per-leg realtime: `estimated` times and `realtimeState` inform `Leg.realtimeDelaySeconds`, `Leg.status`, and `Leg.realtimeState?` as defined above.
+  - Accessibility: `AccessibilityPrefs.wheelchair` maps to enabling wheelchair accessibility in OTP. Other flags like `prioritizeLowFloor` may be unsupported and yield warnings.
+  - Limits: `maxWalkingDistance <= 3000m`, `maxTransfers <= 8`. Requests exceeding limits are normalized with a `validation-error` or adjusted downward with a `Warning`.
+
+- Geocoding (Pelias):
+  - Request parameters include `text`, `size` (capped at 40), `lang`, optional `layers`, `sources`, and focus/bounds. We map feature properties to `GeocodeResult`, preserving `label`, `gid`, `rawLayer`, `rawSource`, and optional `zones` when present.
+  - When `size > 40`, we cap to 40 and set `truncated: true` plus a `truncated-results` warning.
+
+- Departures (Realtime):
+  - `DepartureResponse.realtimeUsed` reflects if any departure data was sourced from realtime. `dataFreshness` is an ISO timestamp derived from feed headers or current time.
+
+Edge cases and expectations:
+
+- If OTP returns cancelled trips, we set `Leg.status = 'cancelled'` and propagate `disruptionNote?` when present.
+- If geocoder returns no features, we return 200 with an empty `results` array and a `geocode-no-results` warning.
