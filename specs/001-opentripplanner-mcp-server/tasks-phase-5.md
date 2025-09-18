@@ -1,152 +1,98 @@
-# Tasks Phase 5: Tool Implementations
+# Tasks Phase 5: Tool Implementations (Normative)
 
-Objective: Implement MCP tools that expose validated schemas & orchestrate service calls. Tools perform boundary validation, correlation ID creation, error mapping, warnings aggregation.
+Objective: Implement MCP tools that expose validated schemas & orchestrate service calls. Tools perform a single boundary validation via Zod, create/propagate correlation IDs, return unified errors/warnings, and are test-first (TDD) per Constitution.
 
 Legend: [ ] Pending | [P] Parallel-safe
 
 | ID | Status | Task | Acceptance Criteria | References |
 |----|--------|------|---------------------|------------|
-| T052 | [ ] | plan_trip tool `src/tools/planTrip.ts` + register in `src/index.ts` | Validates input via schemas; invokes routing service; attaches realtimeUsed/simple scheduleType; returns itineraries array; unit + contract tests GREEN | contracts/plan_trip.md, routing-api.md |
-| T053 | [ ] [P] | find_stops tool `src/tools/findStops.ts` | Validates radius & modes; truncation warning; returns stops subset | contracts/find_stops.md |
-| T054 | [ ] [P] | get_departures tool `src/tools/getDepartures.ts` | Delay/status mapping consistent with contract tests; ordering; truncation warning | contracts/get_departures.md, realtime-apis.md |
-| T055 | [ ] [P] | geocode_address tool `src/tools/geocodeAddress.ts` | Forwards to geocoding service; focus tie-break; sets truncated flag & warning; no-results error with code geocode-no-results | contracts/geocode_address.md |
-| T056 | [ ] [P] | reverse_geocode tool `src/tools/reverseGeocode.ts` | Language fallback (simple chain); returns first viable candidate; no-results error | contracts/reverse_geocode.md |
-| T057 | [ ] [P] | save_user_variable tool `src/tools/saveUserVariable.ts` | Saves & returns previous summary; coordinate validation; TTL placeholder field unchanged | contracts/user_variables.md |
-| T058 | [ ] [P] | get_user_variables tool `src/tools/getUserVariables.ts` | Returns list ordered by updated time (desc or spec-defined); empty list safe | contracts/user_variables.md |
+| T052 | [ ] | plan_trip tool `src/tools/planTrip.ts` + Zod input schema in `src/schema/planTripSchema.ts` + register in `src/index.ts` | - Tool validates input using `src/schema/planTripSchema.ts` (Zod .strict()) and rejects unknown keys with `validation-error`; - Invokes routing service via `services/routingService.ts`; - Attaches `realtimeUsed` and `scheduleType` per contract; - Returns `itineraries[]` with `warnings` (never null) and `correlationId` (UUID v4) present; - Unit + contract + schema tests GREEN (see tests list). | contracts/plan_trip.md, docs/routing-api.md |
+| T053 | [ ] [P] | find_stops tool `src/tools/findStops.ts` + schema `src/schema/findStopsSchema.ts` | - Validates radius & modes (strict), default radius = 500m if omitted; - Returns sorted stops subset; warnings array present (possibly `truncated-results`). | contracts/find_stops.md |
+| T054 | [ ] [P] | get_departures tool `src/tools/getDepartures.ts` + schema `src/schema/getDeparturesSchema.ts` | - Validates stopId and limit (1..50), default limit=10; - Delay/status mapping consistent with contract tests; ordering deterministic; warnings non-null. | contracts/get_departures.md, docs/realtime-apis.md |
+| T055 | [ ] [P] | geocode_address tool `src/tools/geocodeAddress.ts` + schema `src/schema/geocodeAddressSchema.ts` | - Validates `text` length and `size` (default 10, hard cap 40); - Sets `truncated=true` when upstream results > size and emits `truncated-results` warning; - No-results → `geocode-no-results` error with correlationId. Unit + contract tests GREEN. | contracts/geocode_address.md |
+| T056 | [ ] [P] | reverse_geocode tool `src/tools/reverseGeocode.ts` + schema `src/schema/reverseGeocodeSchema.ts` | - Validates coordinate; languages optional array deduped; ensures fallback includes `en` if not found; - Returns first viable candidate and emits `language-fallback` warning when fallback used; - Unit + contract tests GREEN. | contracts/reverse_geocode.md |
+| T057 | [ ] [P] | save_user_variable tool `src/tools/saveUserVariable.ts` + schema `src/schema/userVariableSchema.ts` | - Validates key pattern `^[a-zA-Z0-9_\\-]{1,64}$` and value length ≤ 4096; - Preserves key case (no automatic lowercasing). Deterministic overwrite behavior: return previous summary + `key-overwritten` warning; - Unit + contract tests GREEN. | contracts/user_variables.md |
+| T058 | [ ] [P] | get_user_variables tool `src/tools/getUserVariables.ts` + schema `src/schema/getUserVariablesSchema.ts` | - No input fields (strict object or null allowed); - Returns list ordered by `updatedAt` desc; empty list → `[]` not null; - Unit + contract tests GREEN. | contracts/user_variables.md |
 
-## Cross-Cutting Requirements
+## Cross-Cutting Requirements (normative)
 
-1. All tools emit unified errors (C6) and propagate correlationId.
-2. Validation performed exactly once at boundary (C14).
-3. Warnings array never null; empty = [].
-4. Each tool unit + contract tests pass before moving to Phase 6.
+1. Test‑First (C1): Every tool MUST have failing Vitest tests before implementation (unit + schema + contract). Tests listed in section "Required tests" below must be added/updated first.
+2. Schema Single Source-of-Truth (C14): All runtime validation schemas MUST live under `src/schema/`. Each schema file MUST export:
+   - `export const FooSchema = z.object(...).strict()` (or equivalent strict discriminated union)
+   - `export type Foo = z.infer<typeof FooSchema>`
+3. Single boundary validation (C14): Tools must parse/validate inputs exactly once at the tool boundary (handler). Internal helper functions accept trusted typed input.
+4. Unknown-key rejection: Top-level input objects MUST be `.strict()` and any unknown key MUST produce `validation-error` with message `unknown key: <key>`.
+5. Warnings array: Every successful tool response MUST include `warnings: Warning[]` (empty array if none).
+6. CorrelationId (C6): Every tool invocation MUST attach a `correlationId` (UUID v4). If client supplies one (string), preserve it; otherwise generate new. All responses (success & error) should include the correlationId. Tests MUST assert correlationId presence.
+7. Error shape: All errors conform to `{ code, message, hint?, correlationId? }` following Constitution and contracts. Use kebab-case error codes only.
+8. Defaults & Caps (deterministic runtime values applied by the handler):
+   - find_stops radius default = 500 (m), allowed range (1..5000)
+   - plan_trip limit default = 2, allowed 1..3 (contract-enforced)
+   - geocode_address size default = 10, hard cap = 40
+   - get_departures default limit = 10, allowed 1..50.
+9. Deduplication & limit order: Deduplicate itineraries (fingerprint) → insert disruption alternatives (if any) → then apply `limit`.
+10. Key normalization decision: Preserve keys exactly as provided (no lowercasing). Documented decision to avoid surprising user-facing changes - revisit in Phase 6 if needed.
+11. Correlation ID format decision: Use UUID v4 (canonical) for now; TODO to support configurable generator (nanoid) if needed.
+12. Logging hooks: Add TODO comment placeholder near each handler root referencing `src/infrastructure/logging.ts`. Actual logging implementation planned in Phase 6 (observability).
+13. Tests required before implementation: List in "Required tests" below.
 
-## Detailed Validation Flow (Per Tool)
+## Validation flow (normative)
 
-| Tool | Input Validation Steps | Additional Normalization | Output Post-Processing |
-|------|------------------------|---------------------------|------------------------|
-| plan_trip | Validate required: from, to, time (ISO8601), modes subset, constraints object. Reject if from==to (validation-error). | Clamp max itineraries (if size param) to internal cap (e.g., 10). | Add `scheduleType` placeholder (`scheduled` until realtime integrated). |
-| find_stops | radius number in meters (0 < r ≤ 5000); modes optional array; center coordinate valid. | Trim modes duplicates; default radius if omitted (e.g., 500). | Sort by distance asc; slice to limit. |
-| get_departures | stopId non-empty; limit within [1, 50]; includeRealtime boolean optional. | Default limit=10; coerce negative delay to 0. | Derive status: cancelled / delayed / on-time. |
-| geocode_address | query string length 1–200; size within [1, 10]; focus optional coordinate. | Trim query; collapse internal whitespace to single space. | Set `truncated=true` if provider returned > size. |
-| reverse_geocode | coordinate valid; languages optional array (ordered preference). | Deduplicate languages; append fallback `en` if missing. | Choose first candidate; expose chosen language code. |
-| save_user_variable | key: /^[a-zA-Z0-9_\-]{1,64}$/; value length ≤ 4096; type accepted; coordinate variant validated if type indicates coordinate. | Lowercase key? (Decide – if yes, document; else preserve). | Return full stored variable with updatedAt. |
-| get_user_variables | (no input fields except maybe pagination TBD) | N/A | Sort by updatedAt desc (or spec). |
+- Each tool MUST:
+  1. import its input schema from `src/schema/*` and parse with `Schema.parseAsync(arguments)` or `safeParse`.
+  2. map validation errors to `validation-error` with `code` and `message` listing the first failing field and description.
+  3. perform enrichment & service calls using typed inputs.
+  4. normalize `warnings` and `correlationId` before return.
 
-Assumption: Where spec silent (e.g., radius default, lowercasing keys) decisions annotated with TODO and Constitution Clause C7 triggers update if later changed.
+## Example handler skeleton (doc only)
+
+- Tools should follow the `src/tools/hello.ts` pattern in `src/index.ts` registration: register handler, call `XSchema.parse()`, attach correlationId (if missing), call service, return `{ ...result, warnings: result.warnings ?? [], correlationId }`.
 
 ## Unified Error Codes Utilized (Phase 5 Scope)
 
-| Code | Trigger Condition | HTTP Analog | Hint Provided? | Notes |
-|------|-------------------|-------------|----------------|-------|
-| validation-error | Schema validation fails or semantic rule (e.g., from==to). | 400 | Optional first failing field. | Never retried. |
-| geocode-no-results | geocode_address or reverse_geocode zero results after filtering. | 404 | Suggest adjusting query or radius. | Not an internal failure. |
-| user-variable-too-large | value exceeds allowed length (if enforced). | 413 | State max length. | Optional; implement if limit active. |
-| unsupported-language | reverse_geocode language list all rejected. | 400 | Suggest removing language filter. | May not appear if fallback covers. |
+As in original Phase-5, enforce listed set; mapping unchanged. Retry eligibility remains infra-only.
 
-Retry-eligible errors (429/5xx) occur only beneath service layer; tool boundary maps them—Phase 5 does not introduce new retry behavior logic.
+## Warnings Taxonomy & Deduplication
 
-## Warnings Taxonomy (Initial)
-
-| Warning Code | Emitted By | Condition | Action for Client |
-|--------------|------------|-----------|------------------|
-| truncated-results | geocode_address, find_stops, get_departures | Upstream > requested size; response sliced | Consider increasing size parameter. |
-| language-fallback | reverse_geocode | Preferred language unavailable → fallback used | Display original + chosen fallback to user. |
-| key-overwritten | save_user_variable | Existing key replaced | Decide if user wants audit trail. |
-| no-itineraries | plan_trip | Zero itineraries returned (not error) | Prompt user to adjust time/modes. |
-
-Warnings array ordering: chronological emission order; no duplicates (dedupe by code when generating). If multiple truncated contexts could occur, emit once.
+- Warnings dedupe rule: de-duplicate by `code` (emit code once per response) and preserve emission order (first occurrence wins). Tests must assert dedupe.
 
 ## Correlation & Logging Hooks
 
-- Generate `correlationId` (UUID v4 or nanoid) once per tool invocation if not already present in context. Attach to error responses (C6) and (future) success metadata.
-- Logging (future Phase): structure (tool, correlationId, durationMs, errorCode?). For now: add TODO comment in each tool root.
+- Generate `correlationId` UUID v4 when absent. Attach to both success and error responses. Add `TODO: hook into structured logger` comment in each new tool file.
 
-## Example Payloads & Responses
+## Example Payloads & Responses (normative)
 
-plan_trip Request:
+- `warnings` shown as `[]` when none; `correlationId` present in all responses.
 
-```json
-{
-  "from": { "lat": 60.1699, "lon": 24.9384 },
-  "to": { "lat": 60.2055, "lon": 24.6559 },
-  "time": "2025-09-17T08:00:00Z",
-  "modes": ["BUS", "TRAM"],
-  "constraints": { "maxItineraries": 3 }
-}
-```
+## Testing Strategy (normative / required)
 
-plan_trip Success (truncated excerpt):
+- Unit tests (fast): schema validation success/failure, automatic correlationId generation & preservation, warnings empty array, unknown-key rejection
+- Contract tests (tool-level): response shape and mapping to spec/contract (e.g., `plan_trip` contract cases)
+- Integration tests (in Phase 6): upstream calls & retry behavior
 
-```json
-{
-  "itineraries": [
-    { "durationSeconds": 900, "legs": [{ "mode": "BUS", "line": "550" }] }
-  ],
-  "scheduleType": "scheduled",
-  "warnings": []
-}
-```
+## Required tests to create/update (Test‑First order)
 
-geocode_address No Results Error:
+- For each tool X:
+  - tests/schema/X.schema.test.ts (Zod happy path, missing required fields, unknown key rejection)
+  - tests/tools/X.contract.test.ts (already in repo for many tools; update expectations to require correlationId + warnings array)
+  - tests/tools/X.unit.test.ts (handler-level behaviors: correlationId, warnings dedupe)
+- See detailed test list below.
 
-```json
-{
-  "error": { "code": "geocode-no-results", "message": "No geocoding matches found", "hint": "Broaden the query or adjust focus." }
-}
-```
+## Acceptance Criteria (normative)
 
-reverse_geocode Fallback Warning:
+- All new & updated tests GREEN (unit + contract + schema) before Phase 6 work.
+- `pnpm build && pnpm test` must pass.
+- No ad-hoc validation in tool bodies (schemas must be imported).
+- Warnings never null, correlationId present, unknown keys rejected.
 
-```json
-{
-  "result": { "name": "Helsinki Central", "language": "en" },
-  "warnings": [{ "code": "language-fallback", "message": "Preferred fi not available; used en." }]
-}
-```
+## Open Questions / TODOs (now resolved or documented)
 
-save_user_variable Overwrite Response:
-
-```json
-{
-  "variable": { "key": "home", "value": "Kamppi", "updatedAt": "2025-09-17T07:59:00.000Z" },
-  "warnings": [{ "code": "key-overwritten", "message": "Existing variable replaced." }]
-}
-```
-
-## Testing Strategy
-
-| Test Category | Focus | Notes |
-|---------------|-------|-------|
-| Unit (tool) | Validation path: success + each failure branch | Use minimal mocks of services. |
-| Contract | Ensure returned shape matches spec (snapshot subset) | Avoid brittle ordering of object keys. |
-| Warning emission | Trigger truncated & fallback scenarios | Force upstream over-size arrays. |
-| Error mapping | validation-error, geocode-no-results, unsupported-language | Semantic equality on code/message. |
-| Overwrite semantics | save/get user variables roundtrip | updatedAt increases; warning emitted. |
+- Key normalization: decided to PRESERVE case (documented).
+- Correlation ID format: standardized to UUID v4 for Phase 5.
 
 ## Constitution Clause Mapping
 
-| Clause | Application in Phase 5 |
-|--------|-----------------------|
-| C1 | Tests first for each tool before implementation logic. |
-| C5 | Tools abstain from duplicating retry logic (handled infra). |
-| C6 | Unified error codes returned on all failures. |
-| C13 | Consistent file placement under `src/tools`. |
-| C14 | Single boundary validation with Zod; internal logic assumes typed. |
-
-## Acceptance Criteria
-
-- All tool tests GREEN (unit + contract) with warnings & error cases covered.
-- No duplicate validation logic; boundary schemas imported rather than redefined.
-- Warnings taxonomy implemented where conditions met; absent otherwise.
-- Correlation ID generation placeholder present (TODO if not yet surfaced externally).
-- Example payloads align with schemas (spot checked).
-
-## Open Questions / TODOs
-
-| Topic | Question | Impact | Action |
-|-------|----------|--------|--------|
-| Key normalization | Lowercase user variable keys? | Consistency vs user intent | Decide & document before Phase 6. |
-| Max itineraries cap | Enforce explicit upper bound? | Prevent perf issues | Define in spec if needed. |
-| Language fallback ordering | Guarantee inclusion of 'en'? | Internationalization completeness | Confirm with spec owner. |
-| Warning dedupe strategy | Merge identical codes? | Noise reduction | Implement simple set filter. |
+- Test-First: Clause C1 enforced.
+- Schema discipline & single source-of-truth: Clause C14 enforced.
+- Unified errors: Clause C6 enforced.
+- Observability TODO: Clause C3 noted for Phase 6.

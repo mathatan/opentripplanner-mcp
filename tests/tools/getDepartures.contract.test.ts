@@ -13,7 +13,7 @@ describe('T007 - get_departures contract tests', () => {
       limit: 10,
     };
     const res = await getDepartures.handler(args) as any;
-    expect(res).toBeTypeOf('object');
+    expect(typeof res.correlationId).toBe('string');
     expect(Array.isArray(res.departures)).toBe(true);
     if ((res.departures || []).length > 0) {
       expect(
@@ -29,6 +29,7 @@ describe('T007 - get_departures contract tests', () => {
       includeRealtime: true,
     };
     const res = await getDepartures.handler(args) as any;
+    expect(typeof res.correlationId).toBe('string');
     expect(Array.isArray(res.departures)).toBe(true);
     expect(res.departures.some((d: any) => d.status === 'cancelled')).toBe(true);
   });
@@ -39,6 +40,7 @@ describe('T007 - get_departures contract tests', () => {
       limit: 5000,
     };
     const res = await getDepartures.handler(args) as any;
+    expect(typeof res.correlationId).toBe('string');
     expect(Array.isArray(res.warnings)).toBe(true);
     expect(res.warnings).toContainEqual(expect.objectContaining({ code: 'truncated-results' }));
   });

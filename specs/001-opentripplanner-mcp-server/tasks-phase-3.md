@@ -9,19 +9,21 @@ Legend:
 
 | ID | Status | Task | Acceptance Criteria | Spec / Doc Trace |
 |----|--------|------|---------------------|------------------|
-| T031 | [ ] | Implement Coordinate schema `src/schema/coordinate.ts` | Validates lat ∈ [-90,90], lon ∈ [-180,180]; rejects non-number; tests T012 pass | data-model.md (Coordinate) |
-| T032 | [ ] [P] | Implement LocationRef schema `src/schema/locationRef.ts` | Discriminated union forms (id, coordinates, stopId etc.) validated; tests T013 pass | data-model.md (LocationRef) |
-| T033 | [ ] [P] | Implement PlanConstraints & AccessibilityPrefs `src/schema/planConstraints.ts` | Range limits enforced; unknown keys rejected; tests T014 pass | plan.md, data-model.md |
-| T034 | [ ] [P] | Implement Leg & Itinerary schemas `src/schema/itinerary.ts` | Realtime status derivation helper stub returns scheduled by default; tests T015 pass | routing-api.md, contracts/plan_trip.md |
-| T035 | [ ] [P] | Implement GeocodeResult & Response `src/schema/geocode.ts` | truncated flag computed; ordering preserved; tests T016 pass | geocoding-api.md |
-| T036 | [ ] [P] | Implement Departure & Response `src/schema/departure.ts` | Ordering by time; status enum placeholder; tests T017 pass | realtime-apis.md, get_departures.md |
-| T037 | [ ] [P] | Implement UserVariable & Response `src/schema/userVariable.ts` | TTL field optional; type union; tests T018 pass | user_variables.md |
-| T038 | [ ] [P] | Implement Error & Warning schemas `src/schema/error.ts` | Shape: {code,message,hint?,correlationId?,retryAfter?}; kebab-case enforced; tests T019 pass | spec.md (C6) |
-| T039 | [ ] | Aggregate exports `src/schema/index.ts` | Re-export all schema consts & types; tree-shake safe; no circular deps | plan.md architecture |
+| T031 | [ ] | Implement Coordinate schema `src/schema/coordinate.ts` | Validates lat ∈ [-90,90], lon ∈ [-180,180]; rejects non-number; tests T012 pass | `specs/001-opentripplanner-mcp-server/data-model.md` (Coordinate) |
+| T032 | [ ] [P] | Implement LocationRef schema `src/schema/locationRef.ts` | Discriminated union forms (id, coordinates, stopId etc.) validated; tests T013 pass | `specs/001-opentripplanner-mcp-server/data-model.md` (LocationRef) |
+| T033 | [ ] [P] | Implement PlanConstraints & AccessibilityPrefs `src/schema/planConstraints.ts` | Range limits enforced; unknown keys rejected; tests T014 pass | `specs/001-opentripplanner-mcp-server/plan.md`, `specs/001-opentripplanner-mcp-server/data-model.md` |
+| T034 | [ ] [P] | Implement Leg & Itinerary schemas `src/schema/itinerary.ts` | Realtime status derivation helper stub returns scheduled by default; tests T015 pass | `docs/routing-api.md`, `specs/001-opentripplanner-mcp-server/contracts/plan_trip.md` |
+| T035 | [ ] [P] | Implement GeocodeResult & Response `src/schema/geocode.ts` | truncated flag computed; ordering preserved; tests T016 pass | `specs/001-opentripplanner-mcp-server/contracts/geocode_address.md` |
+| T036 | [ ] [P] | Implement Departure & Response `src/schema/departure.ts` | Ordering by time; status enum placeholder; tests T017 pass | `specs/001-opentripplanner-mcp-server/contracts/get_departures.md`, `docs/realtime-apis.md` |
+| T037 | [ ] [P] | Implement UserVariable & Response `src/schema/userVariable.ts` | TTL field optional; type union; tests T018 pass | `specs/001-opentripplanner-mcp-server/contracts/user_variables.md` |
+| T038 | [ ] [P] | Implement Error & Warning schemas `src/schema/error.ts` | Shape: {code,message,hint?,correlationId?,retryAfter?}; code format enforced; redaction/truncation tested in `src/infrastructure/errorMapping.ts` tests (T043); tests T019 pass | `specs/001-opentripplanner-mcp-server/spec.md` (C6) |
+| T039 | [ ] | Aggregate exports `src/schema/index.ts` | Re-export all schema consts & types; tree-shake safe; no circular deps | `specs/001-opentripplanner-mcp-server/plan.md` architecture |
 
 ### Schema Specification Details
 
 Below captures required fields, types, constraints, and notable edge cases per schema (source: `data-model.md`, contracts, routing & geocoding docs, constitution clauses C6, C14):
+
+All schema property names are camelCase and types MUST be exported using the `export const XSchema = ...` / `export type X = z.infer<typeof XSchema>` pattern (see constitution C14).
 
 1. Coordinate:
    - Fields: `lat: number` (−90 ≤ lat ≤ 90), `lon: number` (−180 ≤ lon ≤ 180)
@@ -34,14 +36,33 @@ Below captures required fields, types, constraints, and notable edge cases per s
    - Numeric ranges (examples, adapt from plan.md): `maxWalkDistance` ≥ 0; `maxTransfers` ≥ 0 integer; `wheelchair` boolean; accessibility sub-object disallows unknown flags.
    - Reject any unknown top-level constraint keys (guards future drift; C14).
 4. Itinerary / Leg:
-   - Core fields (minimal for Phase 3): `legs: Leg[]`, `durationSeconds: number`, `startTime`, `endTime` (ISO 8601 or epoch ms per spec — choose consistent internal representation; assumption: epoch ms → note if assumption changes).
-   - Leg minimal fields: `mode`, `from: LocationRef`, `to: LocationRef`, `startTime`, `endTime`, `distanceMeters`, optional realtime fields (`delaySeconds?`, `cancelled?`).
-   - Realtime status derivation helper (placeholder): returns `scheduled` always in this phase; to be extended Phase 6 (C3, future).
-   - Edge: zero-distance legs or negative duration must be rejected.
+   - Core fields (minimal for Phase 3): itineraries: Itinerary[], each Itinerary must include:
+      - legs: Leg[]
+      - totalDurationSeconds: number (total itinerary duration in seconds)
+      - numberOfTransfers: number
+      - walkingDistanceMeters: number
+      - scheduleType: 'realtime' | 'scheduled' | 'mixed'
+      - disruptionFlag?: boolean
+      - accessibilityNotes?: string[]
+      - alternativeIndicator?: boolean
+      - Leg minimal fields (schema-level canonical names & units):
+      - mode: string
+      - from: LocationRef
+      - to: LocationRef
+      - departureTime: string (ISO 8601 / RFC3339 timestamp)
+      - arrivalTime: string (ISO 8601 / RFC3339 timestamp)
+      - durationSeconds: number (non-negative; seconds)
+      - distanceMeters?: number (meters)
+      - lineRef?: string
+      - realtimeDelaySeconds?: number (non-negative; seconds)
+      - cancelled?: boolean
+      - disruptionNote?: string
+   - Time canonicalization: All timestamp fields at schema boundaries MUST use ISO 8601 / RFC3339 strings (e.g., "2025-09-18T08:00:00Z"). Do NOT adopt epoch milliseconds as the canonical representation in schema docs — epoch ms may be used internally if explicitly agreed and documented, but the public tool-level schemas and tests must declare ISO 8601 strings.
+   - Edge rules: zero-distance legs are permitted only if durationSeconds ≥ 0; negative durations must be rejected at validation. Realtime status derivation helper remains a placeholder returning 'scheduled' for Phase 3.
 5. GeocodeResult & Response:
    - Result fields: `id`, `name`, `coordinate`, optional `distanceMeters?` (focus proximity), `language?`, `type` (enum e.g. `address|stop|poi`).
    - Response: `{ results: GeocodeResult[], truncated: boolean, warnings?: Warning[] }`.
-   - truncated = true iff `results.length > requestedSize` (size param captured externally and passed into schema or validated before).
+   - truncated semantics: The schema exposes `truncated: boolean` in GeocodeResponse but does NOT compute it from `results.length` alone. The `truncated` flag must be derived by the service/adapter layer using upstream metadata (e.g., upstream `total_count` or `meta.max_size`) or by comparing requested size vs. provider-declared max. Tests must assert that the service sets `truncated=true` when upstream indicates the result set was truncated (see `docs/geocoding-api.md` for max_size behavior).
 6. Departure & Response:
    - Departure fields: `stopId`, `serviceDate` (YYYY-MM-DD), `scheduledTime`, `realtimeTime?`, `delaySeconds?`, `status` enum placeholder (`on-time|delayed|cancelled|unknown`).
    - Response ordering strictly ascending by (effective departure time).
@@ -51,10 +72,10 @@ Below captures required fields, types, constraints, and notable edge cases per s
    - Response collection sorted by `updatedAt` desc (later phases may finalize order).
    - TTL optional now; enforcement logic in store not schema.
 8. Error & Warning:
-   - Error shape: `{ code: kebab-case-string, message: string, hint?: string, correlationId?: string, retryAfter?: number }`.
-   - Warning shape similar but no retryAfter.
+   - Error shape: { code: kebab-case-string, message: string, hint?: string, correlationId?: string, retryAfter?: number }.
+   - Warning shape: similar but without retryAfter.
    - Validate code regex: `^[a-z0-9]+(?:-[a-z0-9]+)*$` (C6).
-   - Max message length 200 chars (truncate or fail? spec: redact provider >200; implement redaction in error mapping layer not schema — schema only asserts length ≤ 200 for produced errors).
+   - Message length & redaction: The schema SHOULD allow message strings of reasonable length; provider message redaction/truncation is the responsibility of the unified error mapping layer (`src/infrastructure/errorMapping.ts`, task T043). Do not enforce strict ≤200 characters in the Zod schema; tests for redaction belong in error-mapping tests.
 
 ### Test Matrix Guidance (Mapping RED → GREEN)
 

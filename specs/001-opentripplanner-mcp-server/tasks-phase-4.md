@@ -8,10 +8,10 @@ Legend: [ ] Pending | [P] Parallel-safe
 
 | ID | Status | Task | Acceptance Criteria | References |
 |----|--------|------|---------------------|------------|
-| T048 | [ ] | Routing service `src/services/routingService.ts` | Builds OTP/Digitransit GraphQL query; accepts PlanConstraints; returns normalized itinerary DTO array; hooks for dedupe (fingerprint) | routing-api.md, plan_trip.md |
-| T049 | [ ] [P] | Geocoding service `src/services/geocodingService.ts` | forwardGeocode(), reverseGeocode(); applies size truncation & sets truncated flag; language fallback stub; returns schema-compliant objects | geocoding-api.md |
-| T050 | [ ] [P] | Departures service `src/services/departuresService.ts` | fetchDepartures(stopIds,...); maps delays → status; sorts departures chronologically; returns truncated warning if exceed size | realtime-apis.md, get_departures.md |
-| T051 | [ ] [P] | User variables service `src/services/userVariablesService.ts` | save(name,value) returns previous summary; list() returns ordered list; enforces coordinate validation using schemas | user_variables.md |
+| T048 | [ ] | Routing service `src/services/routingService.ts` | Builds OTP/Digitransit GraphQL query; accepts PlanConstraints; returns normalized itinerary DTO array including realtime metadata (see notes); provides dedupe hooks and enforces itinerary deduplication per spec (fingerprint) | [`docs/routing-api.md`](docs/routing-api.md:1), [`specs/001-opentripplanner-mcp-server/contracts/plan_trip.md`](specs/001-opentripplanner-mcp-server/contracts/plan_trip.md:1) |
+| T049 | [ ] [P] | Geocoding service `src/services/geocodingService.ts` | forwardGeocode(), reverseGeocode(); applies size truncation & sets truncated flag; implements per-service language fallback (requested → fi → en) at Phase 4; returns schema-compliant objects | [`docs/geocoding-api.md`](docs/geocoding-api.md:1), [`specs/001-opentripplanner-mcp-server/contracts/geocode_address.md`](specs/001-opentripplanner-mcp-server/contracts/geocode_address.md:1) |
+| T050 | [ ] [P] | Departures service `src/services/departuresService.ts` | fetchDepartures(stopIds,...); maps delays → status; sorts departures chronologically; returns truncated warning/metadata if exceed size; includes realtime metadata flags | [`docs/realtime-apis.md`](docs/realtime-apis.md:1), [`specs/001-opentripplanner-mcp-server/contracts/get_departures.md`](specs/001-opentripplanner-mcp-server/contracts/get_departures.md:1) |
+| T051 | [ ] [P] | User variables service `src/services/userVariablesService.ts` | save(name,value) returns previous summary; list() returns ordered list; enforces coordinate validation using schemas; TTL behaviour implemented in store consistent with spec (24h inactivity) | [`specs/001-opentripplanner-mcp-server/contracts/user_variables.md`](specs/001-opentripplanner-mcp-server/contracts/user_variables.md:1) |
 
 ## Design Notes
 
@@ -23,7 +23,7 @@ Legend: [ ] Pending | [P] Parallel-safe
 
 | Service | Public Methods (Phase 4) | Inputs | Outputs | Error Codes (C6) | Notes |
 |---------|--------------------------|--------|---------|------------------|-------|
-| routingService | `planTrip(request, ctx)` | request: validated PlanTripInput (schemas), ctx: { correlationId, lang? } | `{ itineraries: Itinerary[] }` | `upstream-timeout`, `upstream-error`, `unknown-error` | GraphQL query builder; no dedupe yet (Phase 6). |
+| routingService | `planTrip(request, ctx)` | `request: validated PlanTripInput (schemas), ctx: { correlationId, lang? }` | `{ itineraries: Itinerary[], realtime_used: 'realtime'&#124;'scheduled'&#124;'mixed', data_freshness?: string (ISO 8601) }` | `upstream-timeout`, `upstream-error`, `unknown-error`, `rate-limited` | GraphQL query builder; enforces dedupe (fingerprint) per spec (uniqueness = leg sequence + start-time delta >= 120s). Supports long-running request pattern: for initial computation >5s return operation_id and allow polling (see spec FR-034). |
 | geocodingService | `forward(query, opts)` / `reverse(coord, opts)` | query string + { size, focus?, lang? } / Coordinate + { lang? } | `{ results: GeocodeResult[], truncated: boolean }` | `geocode-upstream-error`, `upstream-timeout` | Fallback chain for language left stub (Phase 6 centralization). |
 | departuresService | `getDepartures(params, ctx)` | { stopIds: string[], startTime?, limit? } | `{ departures: Departure[], truncated?: boolean }` | `upstream-timeout`, `upstream-error` | Status mapping minimal (delay→delayed if delay>0, cancelled if flag). |
 | userVariablesService | `save(name,value,ctx)` / `list(ctx)` | name: string, value: JSON/Coordinate | `{ previous?: UserVariable, current: UserVariable }` / `{ variables: UserVariable[] }` | `validation-error` | Wraps in-memory store; TTL management in store. |
@@ -32,14 +32,14 @@ Legend: [ ] Pending | [P] Parallel-safe
 
 | Concern | Mechanism | Implementation Detail | Test Hook |
 |---------|-----------|-----------------------|-----------|
-| Rate Limiting | Token bucket (T040) | Acquire before outbound HTTP; if denied → immediate error code `rate-limit-exhausted` (optional early) or await? (Decision: non-blocking immediate error to keep deterministic tests) | Mock bucket depletion scenario |
-| Retries | Decorrelated jitter (T041) | Only on: 429, 5xx, network errors. Max 5 attempts. No retry on validation / 4xx (except 429). | Simulate sequence: 500, 502, 200 → attempts=3 |
+| Rate Limiting | Token bucket (T040) | Acquire token in HTTP client before outbound HTTP. Token-bucket parameters (Phase 4 normative): capacity=30, refill=10 tokens/sec (baseline 10 rps with burst up to 30). If token not immediately available, wait a short configurable grace (default 100ms). If still unavailable return standardized error `rate-limited` with `retryAfter` when known. Tests should cover both successful acquisition and exhaustion scenarios. | Mock bucket depletion scenario |
+| Retries | Exponential (decorrelated) jitter (T041) | Retry only on 429, 5xx, and network errors. Max attempts = 5. Do NOT retry validation errors or 4xx (except 429). Include retry metadata in error/warning objects. | Simulate sequence: 500, 502, 200 → attempts=3 |
 | Correlation | Pass ctx.correlationId header `x-correlation-id` | Logging captures alongside tool name later | Assert header injection via mock HTTP |
-| Timeout | Abort signal after configured ms (e.g., 4000ms default) | Map to `upstream-timeout` error | Simulate delayed promise |
+| Timeout | Abort signal after configured ms (HTTP-level; default 4000ms); service-level orchestration follows FR-034 (if total computation >5s return operation_id and support polling; hard timeout 10s) | Map HTTP timeout to `upstream-timeout` error; orchestration handles operation_id pattern | Simulate delayed promise |
 
-### Error Mapping (Phase 4 Scope)
+### Error Mapping (replacement block)
 
-Map upstream HTTP status to internal codes (subset; full table evolves):
+Map upstream HTTP status to internal codes (subset; full table evolves). Errors MUST be objects matching: `{ code, message, hint?, correlationId?, retryAfter? }` (kebab-case `code` values). Example mappings:
 
 | Status | Code | Hint |
 |--------|------|------|
@@ -48,7 +48,7 @@ Map upstream HTTP status to internal codes (subset; full table evolves):
 | 403 | `upstream-forbidden` | Key lacks permission |
 | 404 | `upstream-not-found` | Resource missing |
 | 408 / timeout | `upstream-timeout` | Increase timeout or retry later |
-| 429 | `upstream-rate-limited` | Retry after delay (retryAfter if provided) |
+| 429 | `rate-limited` | Retry after delay (retryAfter if provided) |
 | 5xx | `upstream-error` | Provider temporary issue |
 | other | `unknown-error` | Generic fallback |
 

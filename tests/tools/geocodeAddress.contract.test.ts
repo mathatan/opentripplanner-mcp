@@ -9,6 +9,7 @@ describe('T008 - geocode_address contract tests', () => {
     };
     const res = await geocodeAddress.handler(args) as any;
     // Placeholder assertions: will fail until implementation adds warnings and truncation
+    expect(typeof res.correlationId).toBe('string');
     expect(Array.isArray(res.warnings)).toBe(true);
     expect(res.warnings).toContainEqual(expect.objectContaining({ code: 'truncated-results' }));
     expect(Array.isArray(res.results)).toBe(true);
@@ -31,6 +32,7 @@ describe('T008 - geocode_address contract tests', () => {
       size: 5,
     };
     const res = await geocodeAddress.handler(args) as any;
+    expect(typeof res.correlationId).toBe('string');
     expect(Array.isArray(res.results)).toBe(true);
     if (res.results.length >= 2) {
       expect(res.results[0].confidence).toBeGreaterThanOrEqual(res.results[1].confidence);
@@ -49,6 +51,7 @@ describe('T008 - geocode_address contract tests', () => {
   it('defaults to size 10 when omitted (placeholder - currently failing)', async () => {
     const args = { query: 'Central Station' };
     const res = await geocodeAddress.handler(args) as any;
+    expect(typeof res.correlationId).toBe('string');
     expect(Array.isArray(res.results)).toBe(true);
     expect(res.results.length).toBeLessThanOrEqual(10);
   });

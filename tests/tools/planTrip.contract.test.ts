@@ -20,6 +20,8 @@ describe('T005 - plan_trip contract tests', () => {
       destination: { lat: 60.2055, lon: 24.6559 },
     };
     const res = await planTrip.handler(args) as any;
+    expect(typeof res.correlationId).toBe('string');
+    expect(Array.isArray(res.warnings)).toBe(true);
     expect(res).toHaveProperty('realtimeUsed');
     expect(['realtime', 'scheduled', 'mixed']).toContain(res.realtimeUsed);
   });
@@ -30,6 +32,8 @@ describe('T005 - plan_trip contract tests', () => {
       destination: { lat: 60.2055, lon: 24.6559 },
     };
     const res = await planTrip.handler(args) as any;
+    expect(typeof res.correlationId).toBe('string');
+    expect(Array.isArray(res.warnings)).toBe(true);
     expect(Array.isArray(res.itineraries)).toBe(true);
     const fingerprints = (res.itineraries || []).map((it: any) => it.fingerprint);
     expect(fingerprints.every((f: any) => typeof f === 'string')).toBe(true);
