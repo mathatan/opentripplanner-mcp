@@ -10,14 +10,14 @@ Elevate reliability, security posture, and maintainability through fuzzing, soak
 
 | ID   | Status   | Task | Acceptance Criteria | Spec / Doc Trace |
 |------|----------|------|---------------------|------------------|
-| T078 | [ ]      | Add fuzz validation test suite (File: `tests/fuzz/validationFuzz.test.ts`) — Random invalid inputs yield `validation-error`, never crash. | See "Per-Task Success Details" for T078. | This document: Fuzz Testing Strategy; Per-Task Success Details. |
-| T079 | [ ] [P]  | Add soak test (1k sequential plan_trip) (File: `tests/soak/planTripSoak.test.ts`) — Detect memory growth; measure avg latency drift. | See "Per-Task Success Details" for T079. | This document: Soak Test Strategy; Per-Task Success Details. |
-| T080 | [ ] [P]  | Security/dependency audit test (File: `tests/security/audit.test.ts`) — Executes `pnpm audit`; skip if offline/env var set. | See "Per-Task Success Details" for T080. | This document: Security / Dependency Audit; Per-Task Success Details. |
-| T081 | [ ] [P]  | Coverage threshold enforcement (Files: `package.json` + config) — Vitest thresholds lines/branches; failing gate breaks CI. | See "Per-Task Success Details" for T081. | This document: Coverage Gate; Per-Task Success Details. |
-| T082 | [ ] [P]  | Refactor constants duplication (File: `src/constants.ts`) — Extract shared numeric/string literals (rate limits, retry). | See "Per-Task Success Details" for T082. | This document: Constants Refactor; Per-Task Success Details. |
-| T083 | [ ] [P]  | Manual exploratory scenarios doc (File: `docs/manual-test-scenarios.md`) — Scripted prompts + expected high-level outcomes. | See "Per-Task Success Details" for T083. | This document: Manual Exploratory Scenarios; Per-Task Success Details. |
-| T084 | [ ] [P]  | Ensure all tool error paths add correlationId & warnings propagate (Files: spot updates tests/*) — Add assertions; backfill missing fields if implemented. | See "Per-Task Success Details" for T084. | This document: Error Path Consistency; Per-Task Success Details. |
-| T085 | [ ]      | Version bump + CHANGELOG (Files: `package.json`, `CHANGELOG.md`) — Set version 0.1.0 & summarize features + constraints. | See "Per-Task Success Details" for T085. | This document: Version Bump & Changelog; Per-Task Success Details. |
+| T078 | [ ]      | Add fuzz validation test suite (File: `tests/fuzz/validationFuzz.test.ts`) — Random invalid inputs yield `validation-error`, never crash. | See "Per-Task Success Details" for T078. | spec.md §Requirements FR-025; This document: Fuzz Testing Strategy; Per-Task Success Details. |
+| T079 | [ ] [P]  | Add soak test (1k sequential plan_trip) (File: `tests/soak/planTripSoak.test.ts`) — Detect memory growth; measure avg latency drift. | See "Per-Task Success Details" for T079. | plan.md §6 Performance Considerations; This document: Soak Test Strategy; Per-Task Success Details. |
+| T080 | [ ] [P]  | Security/dependency audit test (File: `tests/security/audit.test.ts`) — Executes `pnpm audit`; skip if offline/env var set. | See "Per-Task Success Details" for T080. | This document: Security / Dependency Audit; Per-Task Success Details; Constitution C12. |
+| T081 | [ ] [P]  | Coverage threshold enforcement (Files: `package.json` + config) — Vitest thresholds lines/branches; failing gate breaks CI. | See "Per-Task Success Details" for T081. | plan.md §12 Acceptance & Success Metrics; This document: Coverage Gate; Per-Task Success Details. |
+| T082 | [ ] [P]  | Refactor constants duplication (File: `src/constants.ts`) — Extract shared numeric/string literals (rate limits, retry). | See "Per-Task Success Details" for T082. | plan.md §5 Rate Limiting & Resilience; Constitution C5; This document: Constants Refactor; Per-Task Success Details. |
+| T083 | [ ] [P]  | Manual exploratory scenarios doc (File: `docs/manual-test-scenarios.md`) — Scripted prompts + expected high-level outcomes. | See "Per-Task Success Details" for T083. | spec.md §User Scenarios & Testing; This document: Manual Exploratory Scenarios; Per-Task Success Details. |
+| T084 | [ ] [P]  | Ensure all tool error paths add correlationId & warnings propagate (Files: spot updates tests/*) — Add assertions; backfill missing fields if implemented. | See "Per-Task Success Details" for T084. | plan.md §7 Error Model & Observability; This document: Error Path Consistency; Per-Task Success Details. |
+| T085 | [ ]      | Version bump + CHANGELOG (Files: `package.json`, `CHANGELOG.md`) — Set version 0.1.0 & summarize features + constraints. | See "Per-Task Success Details" for T085. | plan.md §8 Versioning; This document: Version Bump & Changelog; Per-Task Success Details. |
 
 Legend: [ ] Pending | [P] Parallel-safe
 
@@ -55,7 +55,12 @@ Parse JSON, list findings in test output for transparency.
 ## Coverage Gate (T081)
 
 Add Vitest config thresholds (e.g., lines >= 80%, branches >= 70% initial).
-Update `package.json` script: `test:coverage` running `vitest run --coverage` and a small script asserting thresholds (if not native).
+Current state: `vitest.config.ts` has no coverage thresholds and `package.json` has no `test:coverage` script. Add coverage settings in Vitest config (or via CLI) and a new script:
+
+- Configure `vitest` with coverage provider (e.g., c8) and thresholds.
+- Add `"test:coverage": "vitest run --coverage"` in `package.json`.
+
+Optionally add a separate CI job that runs `pnpm build && pnpm lint && pnpm test:coverage` to enforce gates.
 Future Raise: Document plan to raise to Constitution targets (C11) once core advanced realtime implemented.
 
 ## Constants Refactor (T082)
@@ -71,6 +76,8 @@ Create `src/constants.ts` exporting:
 
 Use type assertions to ensure numeric literals not accidentally changed; update imports in infra modules & tests (non-behavioral change, ensure GREEN).
 
+Note: Constitution C5 specifies retry max attempts = 5. If current implementation defaults differ (e.g., 3 attempts), synchronizing constants will intentionally change behavior to meet C5. Treat this as a planned alignment: add/update unit tests first (C1), document in CHANGELOG under "Changed", and ensure related thresholds (backoff base/jitter) remain consistent with plan.md §5.
+
 ## Manual Exploratory Scenarios (T083)
 
 Document scenario table:
@@ -85,6 +92,13 @@ Document scenario table:
 | Retry recovering | Simulated 500→503→200 | Final success after retries | Attempt count logged |
 | Cache collapse | Identical concurrent routing calls | Single upstream call shared | Same object ref (if design) |
 | Departures all cancelled | get_departures with all cancelled | status=cancelled per item | No delay mislabel |
+| Realtime unavailable fallback | Simulate realtime outage or disable realtime | scheduleType=scheduled (or mixed) labeled; dataFreshness timestamp present | Aligns with FR-009, FR-031; see realtime-apis.md |
+| Ambiguous place name | geocode_address with ambiguous text | Disambiguation list (≤5) with confidence and proximity ordering | Aligns with FR-013; see geocoding-api.md |
+
+References:
+
+- docs/realtime-apis.md — data freshness, scheduleType labeling
+- docs/geocoding-api.md — disambiguation rules and result limits
 
 ## Error Path Consistency (T084)
 
@@ -119,6 +133,7 @@ Follow Keep a Changelog conventions; compare prior unreleased section if exists.
 - No duplicated literal values remain (grep for numeric constants replaced).
 - Manual scenarios document committed and readable (table renders; no lint issues).
 - Version updated to 0.1.0 with accurate date; CHANGELOG entry complete.
+- Manual scenarios include a case validating realtime-unavailable fallback with dataFreshness timestamp and scheduleType labeling (FR-009, FR-031) and a geocoding disambiguation case (FR-013).
 
 ### Per-Task Success Details
 

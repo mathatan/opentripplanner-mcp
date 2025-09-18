@@ -19,6 +19,7 @@ Integrate all implemented services & tools through end-to-end (E2E) tests, add s
 | T071 | [ ] [P]  | Error path integration test (401/429/timeout mocks) (File: `tests/integration/errorPaths.test.ts`) — Validate mapped error codes + retry attempts count. | See "Per-Task Specific Success Conditions" for T071. | This document: Retry Behavior Integration. |
 | T072 | [ ] [P]  | Performance baseline test (p50/p95 timings) (File: `tests/perf/performance.test.ts`) — Mock upstream latency distribution; assert under thresholds. | See "Per-Task Specific Success Conditions" for T072. | This document: Performance Metrics (Mocked). |
 | T073 | [ ] [P]  | Cache hit/miss integration test (File: `tests/integration/cacheBehavior.test.ts`) — Warm vs cold timings & collapsed requests (≤500ms). | See "Per-Task Specific Success Conditions" for T073. | This document: Cache Behavior Expectations. |
+| T074 | [ ] [P]  | Add e2e reverse_geocode test (File: `tests/e2e/reverseGeocode.e2e.test.ts`) — Best-match result + candidates, language fallback, invalid coordinate error. | See "Per-Task Specific Success Conditions" for T074. | Spec: Core MCP Tools (reverse_geocode); This document: Per-Task Specific Success Conditions. |
 
 Legend: [ ] Pending | [P] Parallel-safe
 
@@ -27,6 +28,16 @@ Legend: [ ] Pending | [P] Parallel-safe
 - Must spawn compiled server (`build/index.js`) after `pnpm build` (avoid stale code) — follow existing pattern in `tests/index.e2e.test.ts`.
 - Handshake: send initialize + list_tools; assert presence of all tools.
 - Each tool call: wrap JSON-RPC/MCP frames; capture correlationId from response (if exposed later—placeholder now). Add TODO if not yet implemented.
+
+Expected tool set to be listed by the server (per Core MCP Tools in `spec.md`):
+
+- plan_trip
+- find_stops
+- get_departures
+- geocode_address
+- reverse_geocode
+- save_user_variable
+- get_user_variables
 
 ## Performance Metrics (Mocked)
 
@@ -55,7 +66,7 @@ Mock upstream responses sequence: 500 → 503 → 200 to assert exactly 2 retrie
 
 - First identical routing/geocode request: MISS (store result) — record latency.
 - Second identical within TTL: HIT — latency should be (significantly) lower (assert < 50% of first or presence of cache flag if available).
-- Request collapsing: Fire 5 identical requests within 200ms window; expect only one upstream call (spy count = 1) and all promises resolved with identical object reference (strict equality) if design allows.
+- Request collapsing: Fire 5 identical requests within 500ms window; expect only one upstream call (spy count = 1) and all promises resolved with identical object reference (strict equality) if design allows. (Aligns with `plan.md` request collapsing window.)
 
 ## Test Data Generation
 
@@ -112,10 +123,11 @@ Add TODO comments where correlationId, warnings array, and logging assertions wi
 | T071 | Injects 401 (no retry), 429 (retry OR limiter interplay), timeout (simulated abort) and checks correct error codes & attempt counts. |
 | T072 | Records p50/p95 for at least 3 tools; uses mocked latency provider; asserts distribution shape (p95 >= p50). |
 | T073 | Confirms cache HIT reduces latency OR presence of hit flag; collapsing triggers only one upstream call for concurrent burst. |
+| T074 | Returns a best reverse geocode match with coordinates echoed; validates candidates[] ordering by confidence; verifies language fallback (requested → fi → en); invalid coords produce `validation-error`; include TODO for bounding_box if not exposed. |
 
 ### Test File Structure & Naming Guidance
 
-- e2e tests: `tests/e2e/<tool>.e2e.test.ts`
+- e2e tests: `tests/e2e/<tool>.e2e.test.ts` (e.g., `reverseGeocode.e2e.test.ts`)
 - integration: `tests/integration/<feature>.test.ts`
 - perf: `tests/perf/performance.test.ts` (extendable with sub‑suites later)
 - Use consistent top-level `describe("tool:<name>")` blocks to aid grep-based selection.
@@ -144,6 +156,7 @@ Add inline TODO markers where future fields will be asserted:
 | scheduleType exposure | Exposed in plan_trip output now or later? | Add TODO; skip assertion until implemented (Phase 6 algorithm). |
 | Cache TTL | What specific TTL to assume in integration tests? | Use injected short TTL (e.g., 2s) for deterministic expiry scenario test. |
 | Percentile thresholds | Should we store baseline artifacts? | Potential future JSON snapshot (Phase 10). |
+| Long-running request cancellation | Where to validate FR-034 async/cancellation flow? | Defer end-to-end cancellation verification to Phase 9; Phase 7 focuses on integration/perf with mocked latencies. |
 
 ## Risks & Mitigations
 
