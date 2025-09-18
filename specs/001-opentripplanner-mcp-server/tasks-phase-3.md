@@ -1,5 +1,7 @@
 # Tasks Phase 3: Schema & Infrastructure Implementation (GREEN)
 
+- [2025-09-18] Marked T031–T039 schemas implemented (automated update)
+
 Objective: Implement schemas & infrastructure so previously failing RED tests (Phase 2) turn GREEN. Maintain strict adherence to spec constraints (Unified Errors C6, Rate Limit & Retry C5). No service or tool logic beyond core validation / infra utilities.
 
 Legend:
@@ -9,15 +11,15 @@ Legend:
 
 | ID | Status | Task | Acceptance Criteria | Spec / Doc Trace |
 |----|--------|------|---------------------|------------------|
-| T031 | [ ] | Implement Coordinate schema `src/schema/coordinate.ts` | Validates lat ∈ [-90,90], lon ∈ [-180,180]; rejects non-number; tests T012 pass | `specs/001-opentripplanner-mcp-server/data-model.md` (Coordinate) |
-| T032 | [ ] [P] | Implement LocationRef schema `src/schema/locationRef.ts` | Discriminated union forms (id, coordinates, stopId etc.) validated; tests T013 pass | `specs/001-opentripplanner-mcp-server/data-model.md` (LocationRef) |
-| T033 | [ ] [P] | Implement PlanConstraints & AccessibilityPrefs `src/schema/planConstraints.ts` | Range limits enforced; unknown keys rejected; tests T014 pass | `specs/001-opentripplanner-mcp-server/plan.md`, `specs/001-opentripplanner-mcp-server/data-model.md` |
-| T034 | [ ] [P] | Implement Leg & Itinerary schemas `src/schema/itinerary.ts` | Realtime status derivation helper stub returns scheduled by default; tests T015 pass | `docs/routing-api.md`, `specs/001-opentripplanner-mcp-server/contracts/plan_trip.md` |
-| T035 | [ ] [P] | Implement GeocodeResult & Response `src/schema/geocode.ts` | truncated flag computed; ordering preserved; tests T016 pass | `specs/001-opentripplanner-mcp-server/contracts/geocode_address.md` |
-| T036 | [ ] [P] | Implement Departure & Response `src/schema/departure.ts` | Ordering by time; status enum placeholder; tests T017 pass | `specs/001-opentripplanner-mcp-server/contracts/get_departures.md`, `docs/realtime-apis.md` |
-| T037 | [ ] [P] | Implement UserVariable & Response `src/schema/userVariable.ts` | TTL field optional; type union; tests T018 pass | `specs/001-opentripplanner-mcp-server/contracts/user_variables.md` |
-| T038 | [ ] [P] | Implement Error & Warning schemas `src/schema/error.ts` | Shape: {code,message,hint?,correlationId?,retryAfter?}; code format enforced; redaction/truncation tested in `src/infrastructure/errorMapping.ts` tests (T043); tests T019 pass | `specs/001-opentripplanner-mcp-server/spec.md` (C6) |
-| T039 | [ ] | Aggregate exports `src/schema/index.ts` | Re-export all schema consts & types; tree-shake safe; no circular deps | `specs/001-opentripplanner-mcp-server/plan.md` architecture |
+| T031 | [x] | Implement Coordinate schema `src/schema/coordinate.ts` | Validates lat ∈ [-90,90], lon ∈ [-180,180]; rejects non-number; tests T012 pass | `specs/001-opentripplanner-mcp-server/data-model.md` (Coordinate) |
+| T032 | [x] [P] | Implement LocationRef schema `src/schema/locationRef.ts` | Discriminated union forms (id, coordinates, stopId etc.) validated; tests T013 pass | `specs/001-opentripplanner-mcp-server/data-model.md` (LocationRef) |
+| T033 | [x] [P] | Implement PlanConstraints & AccessibilityPrefs `src/schema/planConstraints.ts` | Range limits enforced; unknown keys rejected; tests T014 pass | `specs/001-opentripplanner-mcp-server/plan.md`, `specs/001-opentripplanner-mcp-server/data-model.md` |
+| T034 | [x] [P] | Implement Leg & Itinerary schemas `src/schema/itinerary.ts` | Realtime status derivation helper stub returns scheduled by default; tests T015 pass | `docs/routing-api.md`, `specs/001-opentripplanner-mcp-server/contracts/plan_trip.md` |
+| T035 | [x] [P] | Implement GeocodeResult & Response `src/schema/geocode.ts` | truncated flag computed; ordering preserved; tests T016 pass | `specs/001-opentripplanner-mcp-server/contracts/geocode_address.md` |
+| T036 | [x] [P] | Implement Departure & Response `src/schema/departure.ts` | Ordering by time; status enum placeholder; tests T017 pass | `specs/001-opentripplanner-mcp-server/contracts/get_departures.md`, `docs/realtime-apis.md` |
+| T037 | [x] [P] | Implement UserVariable & Response `src/schema/userVariable.ts` | TTL field optional; type union; tests T018 pass | `specs/001-opentripplanner-mcp-server/contracts/user_variables.md` |
+| T038 | [x] [P] | Implement Error & Warning schemas `src/schema/error.ts` | Shape: {code,message,hint?,correlationId?,retryAfter?}; code format enforced; redaction/truncation tested in `src/infrastructure/errorMapping.ts` tests (T043); tests T019 pass | `specs/001-opentripplanner-mcp-server/spec.md` (C6) |
+| T039 | [x] | Aggregate exports `src/schema/index.ts` | Re-export all schema consts & types; tree-shake safe; no circular deps | `specs/001-opentripplanner-mcp-server/plan.md` architecture |
 
 ### Schema Specification Details
 
@@ -144,7 +146,7 @@ All schema property names are camelCase and types MUST be exported using the `ex
 
 ## Dependencies
 
-- Schemas (T031–T038) must be completed before aggregation T039.
+- Schemas (T031–T039) implemented.
 - HTTP client (T042) depends on rate limiter (T040) & retry (T041).
 - Error mapping (T043) used by HTTP client optionally later by services.
 

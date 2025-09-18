@@ -1,3 +1,17 @@
+/**
+ * Leg & Itinerary schemas (T034)
+ *
+ * Spec references:
+ * - specs/001-opentripplanner-mcp-server/tasks-phase-3.md:15
+ * - specs/001-opentripplanner-mcp-server/contracts/plan_trip.md:1
+ * Tests:
+ * - tests/schema/itinerary.schema.test.ts:1
+ *
+ * Rules:
+ * - .strict() for object schemas to reject unknown keys
+ * - ISO-8601 timestamps validated with Date.parse (where applicable)
+ * - Numeric fields use Number.isFinite refinements
+ */
 import { z } from "zod";
 import { WarningSchema } from "./error.js";
 
@@ -110,6 +124,17 @@ export const ItinerarySchema = z
     });
 
 export type Itinerary = z.infer<typeof ItinerarySchema>;
+
+/**
+ * Deterministic helper for realtime status derivation required by T034.
+ * The specification asks for a stable helper; tests expect a placeholder
+ * behavior. This returns 'scheduled' deterministically.
+ */
+export function deriveRealtimeStatusForItinerary(itinerary: Itinerary): "scheduled" | "realtime" | "mixed" {
+    // Phase-3 stub: deterministic placeholder to satisfy T034 acceptance.
+    // Always return 'scheduled' per Phase‑3 specification.
+    return "scheduled";
+}
 
 /**
  * Optional response envelope for journey planning, aligning with data-model.md.

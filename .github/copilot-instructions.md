@@ -45,6 +45,8 @@ Tests (Vitest run mode): 5. `pnpm test` – executes all `tests/**/*.test.ts`. S
 - Must run AFTER a successful `pnpm build` (because the e2e test launches compiled `build/index.js`). If you forget to build, e2e may fail (outdated code) or pass against stale JS. Best practice: run `pnpm build && pnpm test` for CI tasks.
 - Output (as of current state): 2 test files, both pass (<1s total).
 
+To run a single test file: `pnpm test tests/index.e2e.test.ts` (or any other test file).
+
 Single-shot run (build + execute): 6. `pnpm run` – script that performs `pnpm build` then `node build/index.js` (stdout prints readiness message).
 
 Formatting (optional but recommended before commit): 7. `pnpm format` – Prettier over `src/`.
@@ -150,6 +152,8 @@ Bootstrap: `pnpm install`
 Build (must precede tests): `pnpm build`
 Lint: `pnpm lint`
 Unit + E2E tests: `pnpm test`
+Run a singular test against a file: `pnpm test [file]` (e.g., `pnpm test tests/index.e2e.test.ts`)
+Run a specific test name: `pnpm test -t "test name"`
 Dev server (hot reload): `pnpm dev`
 Format: `pnpm format`
 Run compiled binary: `node build/index.js`

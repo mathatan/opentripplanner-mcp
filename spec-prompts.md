@@ -149,6 +149,36 @@ Task: [T001, T002, etc. or specific task name from tasks.md]
 After completing this task, proceed to: [next task ID or name from tasks.md]
 ```
 
+Simpler implementation prompt.
+
+```text
+
+Execute the implementation of tasks Txxx to Txxx from @/specs/001-opentripplanner-mcp-server/tasks-phase-N.md
+
+Focus on executing the tasks, do not stray from the specified task items.
+
+**Implementation Context:**
+- Use the existing MCP server foundation in `/src/` directory
+- Follow the established project structure and coding standards
+- Reference API documentation in `/docs/` folder for specific endpoints or functionality and `/specs/001-opentripplanner-mcp-server/` and `/specs/001-opentripplanner-mcp-server/contracts/` folders for more detailed specifications.
+- Build upon existing test framework and patterns
+- Do not try to guess, always verify and ground your plans and considerations
+
+**API Integration:**
+- Use Digitransit.fi GraphQL APIs as primary data source
+- Where needed use #context7 and #websearch for additional information
+- Follow documented error handling patterns from `/docs/` folder
+
+**Task Completion:**
+- Verify implementation meets all task acceptance criteria
+- Update documentation if required
+- Report completion and any issues encountered
+- Always update the completed tasks in the relevant tasks-phase-N.md document
+
+Always implement the specified tasks only, do not try to adjust the tasks, but focus on the specified tasks.
+
+```
+
 ## Usage Instructions
 
 These prompts work alongside the existing `.cursor/commands/` infrastructure:
