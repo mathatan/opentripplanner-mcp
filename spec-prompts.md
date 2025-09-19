@@ -155,22 +155,23 @@ Simpler implementation prompt.
 
 Execute the implementation of tasks Txxx to Txxx from @/specs/001-opentripplanner-mcp-server/tasks-phase-N.md
 
-Focus on executing the tasks, do not stray from the specified task items.
+Focus on executing the tasks, do not stray from the specified task items. Make sure all the tasks are fully completed, and follow the instructions on testing principles.
 
 **Implementation Context:**
 - Use the existing MCP server foundation in `/src/` directory
 - Follow the established project structure and coding standards
 - Reference API documentation in `/docs/` folder for specific endpoints or functionality and `/specs/001-opentripplanner-mcp-server/` and `/specs/001-opentripplanner-mcp-server/contracts/` folders for more detailed specifications.
-- Build upon existing test framework and patterns
+- Build upon existing patterns and source code, complement the existing unit tests where needed
 - Do not try to guess, always verify and ground your plans and considerations
 
 **API Integration:**
 - Use Digitransit.fi GraphQL APIs as primary data source
-- Where needed use #context7 and #websearch for additional information
+- Where needed use context7 and tavily search tools for additional information
 - Follow documented error handling patterns from `/docs/` folder
 
 **Task Completion:**
 - Verify implementation meets all task acceptance criteria
+- Run test suite and fix any issues connected to the changed files
 - Update documentation if required
 - Report completion and any issues encountered
 - Always update the completed tasks in the relevant tasks-phase-N.md document
