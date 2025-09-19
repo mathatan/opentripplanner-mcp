@@ -1,6 +1,8 @@
 # Tasks Phase 3: Schema & Infrastructure Implementation (GREEN)
 
 - [2025-09-18] Marked T031–T039 schemas implemented (automated update)
+- [2025-09-18] Marked T040–T047 implemented (automated update)
+- [2025-09-19] Marked T041–T046 implemented (manual update)
 
 Objective: Implement schemas & infrastructure so previously failing RED tests (Phase 2) turn GREEN. Maintain strict adherence to spec constraints (Unified Errors C6, Rate Limit & Retry C5). No service or tool logic beyond core validation / infra utilities.
 
@@ -135,14 +137,18 @@ All schema property names are camelCase and types MUST be exported using the `ex
 
 | ID | Status | Task | Acceptance Criteria | Spec Trace |
 |----|--------|------|---------------------|------------|
-| T040 | [ ] | Rate limiter `src/infrastructure/rateLimiter.ts` | Token bucket cap 30; refill 10/s; async acquire returns boolean; tests T020 pass | spec.md (C5) |
-| T041 | [ ] [P] | Retry policy `src/infrastructure/retryPolicy.ts` | Decorrelated jitter exponential; max attempts 5; classification logic; tests T021 pass | spec.md (C5) |
-| T042 | [ ] [P] | HTTP client `src/infrastructure/httpClient.ts` | Integrates rate limiter + retry; injects correlationId; timeout support; tests T022 pass | plan.md HTTP layer |
-| T043 | [ ] [P] | Unified error mapping `src/infrastructure/errorMapping.ts` | Factory maps HTTP status→ internal code; redacts long provider msgs; tests T023 pass | spec.md (C6) |
-| T044 | [ ] [P] | Logging interface `src/infrastructure/logging.ts` | Exports logToolInvocation(data); includes correlationId, durationMs; tests T027 pass | spec.md (C3) |
-| T045 | [ ] [P] | User variable store `src/store/userVariableStore.ts` | set/get list; returns previous on overwrite; TTL purge lazy; tests T024 pass | user_variables.md |
-| T046 | [ ] [P] | Cache implementations `src/infrastructure/cache.ts` | LRU (size TBD via constant); request collapsing ≤500ms window; tests T025 pass | plan.md caching section |
-| T047 | [ ] [P] | Fingerprint util `src/util/fingerprint.ts` | Deterministic hash of itinerary; uniqueness on varied legs; tests T026 pass | plan_trip.md dedupe |
+| T040 | [x] | Rate limiter `src/infrastructure/rateLimiter.ts` | Token bucket cap 30; refill 10/s; async acquire returns boolean; tests T020 pass | spec.md (C5) |
+| T041 | [x] [P] | Retry policy `src/infrastructure/retryPolicy.ts` | Default maxAttempts=5; base backoff=100ms; maxBackoffMs=2000ms; decorrelated multiplicative jitter factor ∈ [0.5,1.0]; retryable classification per C5 (429, 5xx, err.retryable, rate-limited). | spec.md (C5) |
+| T042 | [x] [P] | HTTP client `src/infrastructure/httpClient.ts` | HttpClient must accept injected RateLimiter + retry opts; call rateLimiter.acquire() before network; if acquire() returns false throw rate-limited status 429; wrap network calls with retry(); preserve correlationId header propagation, timeout handling, mockResponse/simulateStatus semantics. | plan.md HTTP layer |
+| T043 | [x] [P] | Unified error mapping `src/infrastructure/errorMapping.ts` | mapHttpError must redact/truncate provider messages >200 chars (store original length in meta.originalMessageLength), extract numeric retryAfter from headers/body, and map statuses to kebab-case codes per spec (429→rate-limited, 401/403→auth-failed, 5xx→upstream-error, 400→validation-error, timeouts→upstream-timeout). | spec.md (C6) |
+| T044 | [x] [P] | Logging interface `src/infrastructure/logging.ts` | Exports logToolInvocation(data); includes correlationId, durationMs; tests T027 pass | spec.md (C3) |
+| T045 | [x] [P] | User variable store `src/store/userVariableStore.ts` | UserVariable store/schema: `updatedAt` must be epoch ms in responses; ttlExpiresAt optional epoch ms; save() returns `{ previous?: { key:string, type?:string }, variable }` where `previous` is a brief summary (key + optional type); list() sorted by updatedAt desc; TTL purge lazy. | user_variables.md |
+| T046 | [x] [P] | Cache implementations `src/infrastructure/cache.ts` | collapseRequest(key, fn, windowMs=500) must coalesce concurrent in‑flight calls and additionally collapse calls started within `windowMs` after a completed request to reuse recent result; default GeocodeCache maxSize documented and configurable. | plan.md caching section |
+| T047 | [x] [P] | Fingerprint util `src/util/fingerprint.ts` | Deterministic hash of itinerary; uniqueness on varied legs; tests T026 pass | plan_trip.md dedupe |
+
+- Documentation updated to mark T041–T046 as implemented on 2025-09-19.
+
+Implementation completed and unit tests updated/verified where applicable.
 
 ## Dependencies
 

@@ -1,5 +1,5 @@
 ---
-# REQUIRED FRONT-MATTER KEYS
+# REQUIRED FRONT-MATTER KEYS (fill or copy into YAML front-matter)
 # title: <Human readable task title>
 # slug: <kebab-case-identifier>
 # version: 1.0.0
@@ -10,110 +10,80 @@
 # otpTopics: []                 # OTP topic identifiers required
 ---
 
-# TASK: <REPLACE_WITH_TASK_TITLE>
+# TASK: {{SHORT_TITLE}}
+
+> This template is a concise, LLM-friendly task spec. Replace {{PLACEHOLDERS}} with concrete values.
 
 ## 0. Purpose
 
-Concise statement of what final documentation artifact this task will eventually produce and how it fits into the Digitransit set.
+One-line description of the intended final artifact and why it exists.
 
 ## 1. Scope & Boundaries
 
-- IN SCOPE: Specific outputs (tables, examples, scenarios, glossary terms, etc.).
-- OUT OF SCOPE: Explicit exclusions (internal runbooks, raw data dumps, proprietary metrics).
+- IN SCOPE: {{IN_SCOPE}}
+- OUT OF SCOPE: {{OUT_OF_SCOPE}}
 
-## 2. Source Authorities (Always Re-Fetch)
+## 2. Sources / Authorities
 
-List canonical URLs (Digitransit pages, architecture pages, registration, changes, deprecations) plus OTP topics (RouteRequest, FeatureFlags, etc.). Supplemental sources only if gaps appear.
+- canonical sources: {{SOURCES}}  # list URLs or spec files
 
-## 3. Deliverables (Structure Blueprint)
+## 3. Deliverables
 
-Define the sections the future generated documentation MUST contain. Integrate meta topics (Auth & Registration, Terms/Policies, FAQ/Troubleshooting, Changes/Deprecations, Glossary seeds) WITHIN the single task’s structure instead of separate task files. Recommended sections (and expected presence in final artifact `finalArtifact`):
+- finalArtifact (optional): `{{FINAL_ARTIFACT_PATH}}`
+- Deliverable sections (optional): Overview, Endpoints, Parameters, Usage Examples, Error & Edge Cases, References
 
-- Overview
-- Concepts (Domain Model)
-- Endpoints / Interfaces
-- Authentication & Keys (integrated; no standalone auth doc)
-- Parameters (merged OTP + Digitransit)
-- Usage Examples
-- Performance & Rate Guidance
-- Error & Edge Cases
-- Integrated Policy & Terms Notes
-- Change & Deprecation Notes
-- Testing & Validation
-- References
-- Changelog
-- Glossary Seeds
+## 4. Phases (template)
 
-Any omission MUST be justified with `NOTE: MISSING DATA` inside the emitted final documentation.
+### Phase {{PHASE_MAJOR}}: {{PHASE_TITLE}}
 
-## 4. Quality Criteria
+- [ ] {{TASK_ID}} {{TASK_TITLE}}  # files: {{FILES}} ; owner: {{OWNER}} ; status: {{STATUS}}
+  - {{TASK_DETAIL_BULLET_1}}  # optional, add relevant details about the task and it's execution
 
-Enumerate acceptance checks (sources re-fetched, parameter origins cited, minimum example scenarios, advanced scenario present, security placeholders, edge cases covered, changelog initialized).
+### Phase {{PHASE_MAJOR_NEXT}}: {{PHASE_TITLE_NEXT}}
 
-## 5. Detailed Steps (Todo Blueprint)
+- [ ] {{TASK_ID_NEXT}} {{TASK_TITLE_NEXT}}  # files: {{FILES_NEXT}} ; owner: {{OWNER_NEXT}} ; status: {{STATUS_NEXT}}
+  - {{TASK_DETAIL_BULLET_A}}  # optional, add relevant details about the task and it's execution
 
-Ordered actionable steps the execution agent will materialize (fetch sources, retrieve OTP topics, outline scaffold, build tables, draft example placeholders, performance notes, error matrix, cross-links, quality review, finalize summary). These steps will be turned into a live todo list by the runner. The runner MUST NOT stop after summary— it MUST also write the fully synthesized documentation file at `finalArtifact`.
+Notes: use `{{TASK_ID}}` (T001 style); mark parallelizable tasks with `[P]`.
 
-## 6. Parameter Table Framework (If Applicable)
+## 5. Acceptance criteria
 
-Provide skeletal table header and planned domains / groupings. Omit if not relevant to this task domain.
+Checklist the agent should satisfy to consider the task accepted. Populate concrete steps when creating the task.
 
-## 7. Planned Example Scenarios (Placeholders Only)
+- [ ] {{ACCEPT_STEP_1}}
+- [ ] {{ACCEPT_STEP_2}}
+- [ ] {{ACCEPT_STEP_3}}
 
-Enumerate scenario IDs with short descriptions (no full examples). Cover basic, intermediate, advanced/realtime, multilingual, edge/perf, complexity-limited where relevant.
+### Technical checks (optional)
 
-## 8. Error & Edge Case Checklist (Planned)
+List the technical validation steps the agent should run. These are executable checks the agent performs; results should be recorded in the phase logs but not tracked as persistent flags here.
 
-Table of case, trigger strategy, expected handling. Include invalid key, rate/complexity limits, empty result, realtime stale, timezone rollover, unsupported mode, deprecation, partial data.
+- build: `{{BUILD_COMMAND}}`  # e.g. `pnpm build`
+- lint: `{{LINT_COMMAND}}`    # e.g. `pnpm lint`
+- test suite: `{{UNIT_TEST_COMMAND}}`  # e.g. `pnpm test`
+- singular test: `{{E2E_TEST_COMMAND}}`    # e.g. `pnpm test [test-file]`
+- test-first (TDD): `{{TDD_STEPS}}`    # e.g. create failing test, implement, ensure pass
 
-## 9. Cross-Links & Dependencies
+If a check fails, record logs and failure details in the corresponding phase entry.
 
-List related task slugs (dependsOn, related) and rationale (e.g., uses dataset definitions from routing-data-api, references realtime examples from realtime-apis).
+## 6. Clarification needed (optional)
 
-## 10. Changelog (Task Spec Evolution)
+List items requiring user input or research; the agent should populate this during planning.
 
-Seed with 1.0.0 creation row. Future edits increment patch/minor/major.
+- {{CLARIFY_ITEM_1}}
+- {{CLARIFY_ITEM_2}}
 
-## 11. Escalation & Missing Data Policy
+## 7. Notes (optional)
 
-State how unresolved data is marked (NOTE: MISSING DATA) and criteria for deferral. Each unresolved item becomes a memory key `missing:<slug>:<descriptor>`.
+Only include notes when they add meaningful context for reviewers or the agent. If nothing to add, omit this section.
 
-## 12. Execution Directive (MANDATORY)
+- "{{NOTES_DETAILS}}"    # optional free-form details or short bullets
+- links: [ {{LINK_1}} ]            # optional related docs or specs
 
-The documentation runner MUST, after completing quality checks, generate/overwrite the file indicated by `finalArtifact` with the fully rendered documentation using ONLY validated context (sources & otpTopics). The task file itself remains a specification; the emitted artifact is consumer-facing. All placeholders in sections 6–8 must be replaced in the artifact; placeholders MAY remain in the task spec.
+## 8. References
 
-### Final Artifact Minimum Structural Outline
-
-```markdown
----
-title: <title>
-slug: <slug>
-version: <task version>
-generatedAt: <ISO8601>
-sourcesReferenced: [..]
-otpTopicsReferenced: [..]
----
-
-# <Title>
-
-## Overview
-## Concepts
-## Endpoints
-## Authentication & Keys
-## Parameters
-## Usage Examples
-## Performance & Rate
-## Error & Edge Cases
-## Integrated Policy & Terms Notes
-## Change & Deprecation Notes
-## Testing & Validation
-## References
-## Changelog
-## Glossary Seeds
-```
-
-The runner MUST ensure this outline exists (sections may be empty only with explicit NOTE: MISSING DATA).
+- sources: {{SOURCES_LIST}}
 
 ---
 
-Template version: 2.1.0
+Template version: 2.4.0
