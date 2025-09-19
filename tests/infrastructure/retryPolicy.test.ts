@@ -1,53 +1,92 @@
-import { describe, it, expect } from 'vitest';
-import { retry, computeBackoff } from '../../src/infrastructure/retryPolicy';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { retry, computeBackoff, deterministicJitterFactor } from '../../src/infrastructure/retryPolicy'
 
-describe('retryPolicy (T021) - placeholder RED tests', () => {
-  it('Max attempts: ensure retry wrapper does not attempt more than 5 times for retryable errors (placeholder failing)', async () => {
-    try {
-      await retry(async () => {
-        return Promise.reject({ code: 'ECONNRESET', message: 'transient' });
-      }, { maxAttempts: 5 });
-      // If retry resolves unexpectedly, fail the placeholder
-      expect(true).toBe(false);
-    } catch (err) {
-      // Placeholder: current stub should cause the test to fail intentionally
-      expect(true).toBe(false);
-    }
-  });
+describe('retryPolicy (T041) - deterministic retry policy', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
 
-  it('Exponential jitter bounds: placeholder asserting backoff values lie within expected range', () => {
+  afterEach(() => {
+    // Ensure timers are restored between tests to avoid leaking fake timers
     try {
-      const backoff = computeBackoff(3, { base: 100, maxBackoff: 10000 });
-      expect(backoff).toBeGreaterThanOrEqual(100);
-      expect(backoff).toBeLessThanOrEqual(10000);
-    } catch (err) {
-      // Placeholder failing assertion
-      expect(true).toBe(false);
+      vi.useRealTimers()
+    } catch {
+      // ignore if already real
     }
-  });
+  })
 
-  it('Non-retry codes: placeholder asserting 400/401 do not trigger retries', async () => {
-    try {
-      await retry(async () => {
-        return Promise.reject({ code: 400, message: 'bad request' });
-      });
-      expect(true).toBe(false);
-    } catch (err) {
-      // Placeholder failing assertion
-      expect(true).toBe(false);
-    }
-  });
+  it('retries up to maxAttempts for retryable errors and calls fn exact count', async () => {
+    vi.useFakeTimers()
+    const fn = vi.fn(async () => {
+      throw { status: 500, message: 'server error' }
+    })
 
-  it('Decorrelated jitter variability: placeholder asserting delays differ and remain bounded', () => {
-    try {
-      const d1 = computeBackoff(1);
-      const d2 = computeBackoff(2);
-      expect(d1).not.toBe(d2);
-      expect(d1).toBeGreaterThanOrEqual(0);
-      expect(d2).toBeGreaterThanOrEqual(0);
-    } catch (err) {
-      // Placeholder failing assertion
-      expect(true).toBe(false);
+    const opts = {
+      maxAttempts: 5,
+      baseMs: 100,
+      maxBackoffMs: 2000,
+      jitterMin: 0.5,
+      jitterMax: 1.0,
+      // deterministic randomFn returning 0 forces jitterFactor === jitterMin (0.5)
+      randomFn: (_seed: number) => 0
     }
-  });
-});
+
+    const promise = retry(fn, opts)
+    // attach a noop rejection handler early so Node/Vitest does not report
+    // a transient "PromiseRejectionHandledWarning" while timers advance.
+    // The original promise remains the same and can still be asserted with `expect(...).rejects`.
+    // See test guidance in T041: use deterministic timers and avoid unhandled rejections.
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    promise.catch(() => {})
+
+    // compute expected total sleep between attempts 1..4 (no sleep after final attempt)
+    const sleeps: number[] = []
+    for (let attempt = 1; attempt < opts.maxAttempts; attempt++) {
+      const b = computeBackoff(attempt, { base: opts.baseMs, maxBackoff: opts.maxBackoffMs })
+      const jf = deterministicJitterFactor(attempt, opts.jitterMin, opts.jitterMax, opts.randomFn)
+      sleeps.push(Math.round(Math.min(b * jf, opts.maxBackoffMs)))
+    }
+    const totalSleep = sleeps.reduce((s, v) => s + v, 0)
+
+    // advance time enough for all retries to proceed
+    await vi.advanceTimersByTimeAsync(totalSleep)
+
+    await expect(promise).rejects.toMatchObject({ status: 500 })
+    expect(fn).toHaveBeenCalledTimes(5)
+
+    vi.useRealTimers()
+  })
+
+  it('non-retryable errors rethrow immediately', async () => {
+    const fn = vi.fn(async () => {
+      throw { status: 400, message: 'bad request' }
+    })
+
+    await expect(retry(fn)).rejects.toMatchObject({ status: 400 })
+    expect(fn).toHaveBeenCalledTimes(1)
+  })
+
+  it('computeBackoff caps at maxBackoffMs', () => {
+    const b1 = computeBackoff(1, { base: 100, maxBackoff: 2000 })
+    const bN = computeBackoff(10, { base: 100, maxBackoff: 2000 })
+    expect(b1).toBe(100)
+    expect(bN).toBeLessThanOrEqual(2000)
+  })
+
+  it('jitterFactor deterministic and in range', () => {
+    const j1 = deterministicJitterFactor(1, 0.5, 1.0)
+    const j1b = deterministicJitterFactor(1, 0.5, 1.0)
+    const j2 = deterministicJitterFactor(2, 0.5, 1.0)
+
+    expect(j1).toBeGreaterThanOrEqual(0.5)
+    expect(j1).toBeLessThanOrEqual(1.0)
+    expect(j1).toBe(j1b)
+    // different attempt may produce different jitter (likely)
+    expect(j2).toBeGreaterThanOrEqual(0.5)
+    expect(j2).toBeLessThanOrEqual(1.0)
+
+    // custom randomFn injection
+    const jCustom = deterministicJitterFactor(3, 0.5, 1.0, () => 0.5)
+    expect(jCustom).toBeCloseTo(0.75, 8)
+  })
+})

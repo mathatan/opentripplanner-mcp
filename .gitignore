@@ -95,6 +95,9 @@ dist
 .temp
 .cache
 
+# Macos system files
+.DS_Store
+
 # Sveltekit cache directory
 .svelte-kit/
 
@@ -140,3 +143,7 @@ vite.config.ts.timestamp-*
 
 build/
 .context-files/
+tasks/generated/
+tasks/findings/
+tasks/reports/
+tasks/review/

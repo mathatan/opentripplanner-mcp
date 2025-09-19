@@ -132,4 +132,64 @@ describe('HttpClient (T022 minimal RED tests)', () => {
     const value = getHeaderValue(capturedInit, 'Accept-Language');
     expect(value).toBe(acceptLanguage);
   });
+
+  it('throws rate-limited when rateLimiter.acquire() returns false', async () => {
+    const rl = { acquire: vi.fn().mockReturnValue(false) };
+    const client = new HttpClient({ rateLimiter: rl, retryOpts: { maxAttempts: 1 } });
+
+    await expect(client.request('https://upstream.example/blocked')).rejects.toMatchObject({ code: 'rate-limited', status: 429 });
+    expect(rl.acquire).toHaveBeenCalled();
+  });
+
+  it('mockResponse bypasses rate limiter (short-circuit behavior)', async () => {
+    // mockResponse is intentionally a short-circuit path and should not invoke rateLimiter.acquire()
+    const rl = { acquire: vi.fn().mockReturnValue(false) };
+    const client = new HttpClient({ rateLimiter: rl });
+
+    const res = await client.request('https://upstream.example/mock', { mockResponse: { ok: true } });
+    await expect(res.json()).resolves.toEqual({ ok: true });
+    expect(rl.acquire).not.toHaveBeenCalled();
+  });
+
+  it('invokes rateLimiter.acquire() on each retry attempt', async () => {
+    vi.useFakeTimers();
+
+    // rate limiter that returns true for each attempt
+    const rl = { acquire: vi.fn().mockResolvedValue(true) };
+
+    // Mock fetch to fail twice with a retryable error (has code string so HttpClient propagation keeps it)
+    const errObj = { code: 'upstream', status: 500, message: 'server' };
+    const successResp = {
+      ok: true,
+      status: 200,
+      json: async () => ({ done: true }),
+      headers: new Map(),
+    } as any;
+
+    globalThis.fetch = vi.fn()
+      .mockImplementationOnce(() => Promise.reject(errObj))
+      .mockImplementationOnce(() => Promise.reject(errObj))
+      .mockImplementationOnce(() => Promise.resolve(successResp));
+
+    // deterministic retry options: small backoffs and no jitter variability
+    const client = new HttpClient({
+      rateLimiter: rl,
+      retryOpts: {
+        maxAttempts: 3,
+        baseMs: 1,
+        jitterMin: 1,
+        jitterMax: 1,
+        randomFn: () => 0,
+      },
+    });
+
+    const p = client.request('https://upstream.example/retry');
+
+    // Advance timers enough to cover the small sleeps between retries (1ms + 2ms = 3ms)
+    await vi.advanceTimersByTimeAsync(10);
+
+    const res = await p;
+    expect(res.status).toBe(200);
+    expect(rl.acquire).toHaveBeenCalledTimes(3);
+  });
 });

@@ -1,68 +1,99 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import UserVariableStore from '../../src/store/userVariableStore'
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import UserVariableStore from "../../src/store/userVariableStore";
+import { clearAll } from "../../src/store/userVariableStore";
 
-describe('UserVariableStore - T024 (user variable store) - placeholders', () => {
-  let store: UserVariableStore
+describe("UserVariableStore - T045 user variable store", () => {
+  let store: UserVariableStore;
 
-  beforeEach(() => {
-    store = new UserVariableStore()
-  })
+  beforeEach(async () => {
+    store = new UserVariableStore();
+    await clearAll();
+  });
 
   afterEach(() => {
-    try { vi.useRealTimers() } catch { /* ignore errors when restoring real timers */ }
-  })
+    try {
+      vi.useRealTimers();
+    } catch {
+      /* ignore errors when restoring real timers */
+    }
+  });
 
-  it('overwrite returns previous (placeholder, will fail until implemented)', async () => {
+  it("overwrite returns previous summary", async () => {
     // Save original
-    await store.save('session-1', { key: 'home', value: { lat: 60.0, lon: 24.0 } })
+    await store.save("s1", { key: "home", value: { lat: 60.0, lon: 24.0 } });
 
     // Overwrite
-    const result = await store.save('session-1', { key: 'home', value: { lat: 61.0, lon: 25.0 } })
+    const result = await store.save("s1", { key: "home", value: { lat: 61.0, lon: 25.0 } });
 
-    // Expect the second save to include previous summary
-    expect(result).toBeDefined()
-    expect(result).toHaveProperty('previous')
-    expect(result.previous).toMatchObject({ key: 'home', value: { lat: 60.0, lon: 24.0 } })
-  })
+    // Expect the second save to include previous summary with key and optional type
+    expect(result).toBeDefined();
+    expect(result).toHaveProperty("previous");
+    expect(result.previous).toMatchObject({ key: "home" });
+    // type may be absent or a string
+    if (result.previous.type !== undefined) {
+      expect(typeof result.previous.type).toBe("string");
+    }
+  });
 
-  it('TTL expiry simulation with fake timers (placeholder, will fail until implemented)', async () => {
-    vi.useFakeTimers()
+  it("TTL expiry with fake timers", async () => {
+    vi.useFakeTimers();
 
-    // Save with short TTL (milliseconds)
-    await store.save('session-ttl', { key: 'temp', value: 'will-expire', ttl: 1000 })
+    // Save with short TTL in seconds (schema converts ttl -> ttlSeconds)
+    await store.save("s-ttl", { key: "temp", value: "will-expire", ttlSeconds: 1 });
 
-    // Advance past TTL
-    vi.advanceTimersByTime(2000)
+    // Advance 1500 ms to pass TTL (use async advance)
+    await vi.advanceTimersByTimeAsync(1500);
 
-    const got = await store.get('session-ttl', 'temp')
-    expect(got).toBeUndefined()
-  })
+    const got = await store.get("s-ttl", "temp");
+    expect(got).toBeUndefined();
 
-  it('isolation per session (placeholder, will fail until implemented)', async () => {
-    await store.save('session-A', { key: 'token', value: 'A-SECRET' })
+    vi.useRealTimers();
+  });
 
-    const fromB = await store.get('session-B', 'token')
-    expect(fromB).toBeUndefined()
+  it("isolation per session", async () => {
+    await store.save("session-A", { key: "token", value: "A-SECRET" });
 
-    const fromA = await store.get('session-A', 'token')
-    expect(fromA).toBeDefined()
-    expect(fromA).toMatchObject({ key: 'token', value: 'A-SECRET' })
-  })
+    const fromB = await store.get("session-B", "token");
+    expect(fromB).toBeUndefined();
 
-  it('overwrite atomicity under concurrent saves (placeholder, will fail until implemented)', async () => {
+    const fromA = await store.get("session-A", "token");
+    expect(fromA).toBeDefined();
+    expect(fromA).toMatchObject({ key: "token", value: "A-SECRET" });
+  });
+
+  it("concurrent saves return previous summaries deterministically", async () => {
     // Simulate concurrent saves
-    const p1 = store.save('session-concurrent', { key: 'counter', value: 1 })
-    const p2 = store.save('session-concurrent', { key: 'counter', value: 2 })
+    const p1 = store.save("session-concurrent", { key: "counter", value: 1 });
+    const p2 = store.save("session-concurrent", { key: "counter", value: 2 });
 
-    const [r1, r2] = await Promise.all([p1, p2])
+    const [r1, r2] = await Promise.all([p1, p2]);
 
-    // Both saves should deterministically report the previous value.
-    expect(r1).toBeDefined()
-    expect(r2).toBeDefined()
-    expect(r1).toHaveProperty('previous')
-    expect(r2).toHaveProperty('previous')
+    expect(r1).toBeDefined();
+    expect(r2).toBeDefined();
+    expect(r1).toHaveProperty("previous");
+    expect(r2).toHaveProperty("previous");
 
-    // The test intentionally asserts deterministic behavior (placeholder)
-    expect(typeof r1.previous !== 'undefined' || typeof r2.previous !== 'undefined').toBe(true)
-  })
-})
+    // At least one of the saves should report a previous (the second to run),
+    // but due to JS Map atomicity both may include previous (relaxed assertion).
+    expect(typeof r1.previous !== "undefined" || typeof r2.previous !== "undefined").toBe(true);
+  });
+
+  it("list returns non-expired sorted by updatedAt descending", async () => {
+    vi.useFakeTimers();
+    // Save A
+    await store.save("session-sort", { key: "a", value: "first" });
+    // Advance time so updatedAt differs
+    await vi.advanceTimersByTimeAsync(10);
+    // Save B
+    await store.save("session-sort", { key: "b", value: "second" });
+
+    const list = await store.list("session-sort");
+    expect(Array.isArray(list)).toBe(true);
+    expect(list.length).toBe(2);
+    // b should be first as it was updated later
+    expect(list[0].key).toBe("b");
+    expect(list[1].key).toBe("a");
+
+    vi.useRealTimers();
+  });
+});

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CoordinateSchema, type Coordinate } from "./coordinate.ts";
+import { CoordinateSchema, type Coordinate } from "./coordinate.js";
 
 /**
  * LocationRef schema (T032)
