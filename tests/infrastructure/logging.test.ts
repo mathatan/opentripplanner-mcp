@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { createLogger } from 'src/infrastructure/logging'
-
+import { createLogger, logToolInvocation } from 'src/infrastructure/logging'
+ 
 describe('logging interface T027', () => {
   it('emits required fields for info logs', () => {
     const logger = createLogger('my-tool')
@@ -19,7 +19,7 @@ describe('logging interface T027', () => {
     expect(logged).toHaveProperty('success')
     spy.mockRestore()
   })
-
+ 
   it('propagates correlationId when supplied in context', () => {
     const logger = createLogger('my-tool')
     const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -28,7 +28,7 @@ describe('logging interface T027', () => {
     expect(logged).toHaveProperty('correlationId', 'ctx-123')
     spy.mockRestore()
   })
-
+ 
   it('includes errorCode and stack/message for error logs', () => {
     const logger = createLogger('my-tool')
     const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -41,7 +41,7 @@ describe('logging interface T027', () => {
     expect(logged).toHaveProperty('message')
     spy.mockRestore()
   })
-
+ 
   it('includes upstream metrics when provided', () => {
     const logger = createLogger('my-tool')
     const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -49,6 +49,53 @@ describe('logging interface T027', () => {
     const logged = spy.mock.calls[0] ? spy.mock.calls[0][0] : undefined
     expect(logged).toHaveProperty('upstreamLatencyMs')
     expect(logged).toHaveProperty('rateLimitTokensRemaining')
+    spy.mockRestore()
+  })
+ 
+  it('truncates long providerMessage for info/warn/error', () => {
+    const logger = createLogger('my-tool')
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    // Build a long string with many emoji (multi-codepoint aware)
+    const long = '💥'.repeat(250) // 250 code points
+    // info
+    logger.info({ correlationId: 't-1' }, { providerMessage: long })
+    let logged = spy.mock.calls[0] ? spy.mock.calls[0][0] : undefined
+    expect(typeof logged.providerMessage).toBe('string')
+    // truncated length <= 201 (200 + ellipsis)
+    expect(logged.providerMessage.length).toBeLessThanOrEqual(201)
+    // must end with ellipsis
+    expect(logged.providerMessage.endsWith('…')).toBe(true)
+    // warn
+    logger.warn({ correlationId: 't-2' }, { providerMessage: long })
+    logged = spy.mock.calls[1] ? spy.mock.calls[1][0] : undefined
+    expect(typeof logged.providerMessage).toBe('string')
+    expect(logged.providerMessage.length).toBeLessThanOrEqual(201)
+    expect(logged.providerMessage.endsWith('…')).toBe(true)
+    // error
+    const err = new Error('boom')
+    logger.error({ correlationId: 't-3' }, err, { providerMessage: long })
+    logged = spy.mock.calls[2] ? spy.mock.calls[2][0] : undefined
+    expect(typeof logged.providerMessage).toBe('string')
+    expect(logged.providerMessage.length).toBeLessThanOrEqual(201)
+    expect(logged.providerMessage.endsWith('…')).toBe(true)
+    spy.mockRestore()
+  })
+ 
+  it('logToolInvocation normalizes primitive meta into structured meta key', () => {
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const ctx = { correlationId: 'p-123' }
+    // string
+    logToolInvocation('prim-tool', ctx, 'a string')
+    let logged = spy.mock.calls[0] ? spy.mock.calls[0][0] : undefined
+    expect(logged).toHaveProperty('meta', 'a string')
+    // number
+    logToolInvocation('prim-tool', ctx, 123)
+    logged = spy.mock.calls[1] ? spy.mock.calls[1][0] : undefined
+    expect(logged).toHaveProperty('meta', 123)
+    // boolean
+    logToolInvocation('prim-tool', ctx, false)
+    logged = spy.mock.calls[2] ? spy.mock.calls[2][0] : undefined
+    expect(logged).toHaveProperty('meta', false)
     spy.mockRestore()
   })
 })

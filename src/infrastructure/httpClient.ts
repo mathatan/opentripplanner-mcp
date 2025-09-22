@@ -13,6 +13,7 @@
  */
 import { makeError, mapHttpError } from "./errorMapping.js";
 import { retry, type RetryOpts } from "./retryPolicy.js";
+import { createLogger } from "./logging.js";
 
 export type HttpRequestOptions = {
   method?: string;
@@ -42,20 +43,53 @@ function getHeaderValueFromHeaders(headers: any, name: string): string | undefin
 
 function normalizeToPlainObject(headers?: any): Record<string, string> {
   if (!headers) return {};
-  if (typeof headers.get === "function") {
-    // Can't easily enumerable Headers-like; return empty to avoid exposing functions
-    return {};
+  const out: Record<string, string> = {};
+
+  // Prefer enumerating known iterable / enumerable header shapes.
+  // 1) WHATWG Headers implements forEach((value, key) => ...)
+  // 2) Some header-like objects provide entries() -> iterator of [k,v]
+  // 3) Some custom implementations are iterable (Symbol.iterator) and yield [k,v]
+  // 4) Map and Array<[k,v]> are handled below
+  try {
+    if (typeof headers.forEach === "function") {
+      // WHATWG Headers: forEach((value, key) => ...)
+      headers.forEach((value: any, key: any) => {
+        out[String(key)] = String(value);
+      });
+      return out;
+    }
+
+    if (typeof headers.entries === "function") {
+      for (const [k, v] of headers.entries()) {
+        out[String(k)] = String(v);
+      }
+      return out;
+    }
+
+    // Support generic iterables that yield [k, v] pairs (e.g., custom iterables).
+    if (typeof Symbol !== "undefined" && headers && typeof headers[Symbol.iterator] === "function") {
+      for (const pair of headers as Iterable<any>) {
+        if (!pair) continue;
+        const [k, v] = pair;
+        out[String(k)] = String(v);
+      }
+      return out;
+    }
+  } catch {
+    // If enumeration throws for some reason, fall through to other checks / empty result.
   }
+
   if (headers instanceof Map) {
-    const out: Record<string, string> = {};
-    for (const [k, v] of headers.entries()) out[k] = String(v);
+    for (const [k, v] of headers.entries()) out[String(k)] = String(v);
     return out;
   }
+
   if (Array.isArray(headers)) {
-    const out: Record<string, string> = {};
-    for (const [k, v] of headers) out[k] = String(v);
+    for (const [k, v] of headers) out[String(k)] = String(v);
     return out;
   }
+
+  // Plain object copy (shallow). Preserve original behavior for plain objects.
   return { ...(headers as Record<string, string>) };
 }
 
@@ -101,7 +135,16 @@ export class HttpClient {
       const attemptFn = async () => {
         // Rate limiter check (invoked on each attempt)
         if (this.rateLimiter) {
-          const ok = await Promise.resolve(this.rateLimiter.acquire());
+          // First, invoke acquire() and map only unexpected rejections/throws to upstream-error.
+          let ok: boolean | undefined = undefined;
+          try {
+            ok = await Promise.resolve(this.rateLimiter.acquire());
+          } catch (err) {
+            // Map unexpected rejection/throw from rateLimiter.acquire() into a
+            // canonical upstream-error so retry logic receives a deterministic shape.
+            throw makeError("upstream-error", String((err as any)?.message ?? err), { original: err });
+          }
+          // If acquire resolved to a falsy value, treat as rate-limited.
           if (!ok) {
             const err = makeError("rate-limited", "rate limited", { status: 429 });
             // ensure status field exists for retry classification
@@ -148,11 +191,37 @@ export class HttpClient {
 
         // Prevent unhandled rejections from the raw fetch promise in cases where the
         // timeout causes the raced promise to reject first and the underlying fetch
-        // later rejects (e.g., due to AbortError). We attach a noop handler to swallow
-        // that particular rejection; the caller still receives the mapped error via
-        // the raced promise above.
+        // later rejects (e.g., due to AbortError). We attach a handler that behaves
+        // differently depending on environment to avoid swallowing errors in production
+        // while keeping tests deterministic.
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
-        fetchPromise.catch(() => {});
+        fetchPromise.catch((err: any) => {
+          // In tests we intentionally suppress logging to avoid noisy output and to
+          // match existing test expectations (Vitest fake timers, etc.).
+          if (process.env.NODE_ENV === "test") {
+            return;
+          }
+          // In non-test environments we MUST NOT silently suppress errors. Log a
+          // detailed debug message including stack when available so failures are
+          // observable and debuggable (INF-HTTP-03).
+          try {
+            const logger = createLogger('http-client');
+            const isErrorLike = err && typeof err === "object" && ("message" in err || "stack" in err);
+            const details = isErrorLike
+              ? { message: (err as Error).message ?? String(err), stack: (err as Error).stack }
+              : { message: String(err) };
+            // Use structured logger so logs are consistent with repository conventions.
+            logger.info({ correlationId: (opts as any)?.correlationId }, { event: 'unhandled-fetch-rejection', ...details });
+          } catch (logErr) {
+            // If logging itself fails, attempt a minimal structured log and otherwise swallow.
+            try {
+              const logger = createLogger('http-client');
+              logger.info({ correlationId: (opts as any)?.correlationId }, { event: 'unhandled-fetch-rejection-logging-failed', error: String(logErr) });
+            } catch {
+              // swallow - logging must never throw
+            }
+          }
+        });
 
         // Timeout handling uses the instance timeout or per-request timeout
         const timeout = opts && typeof opts.timeoutMs === "number" ? opts.timeoutMs : this.timeoutMs;

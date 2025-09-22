@@ -29,20 +29,31 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
-* computeBackoff(attempt, opts?)
-*
-* - base defaults to 100ms
-* - maxBackoff defaults to 2000ms
-* - Uses base * 2^(attempt-1) and caps by maxBackoff
-*
-* Returns the exponential backoff (rounded) BEFORE jitter is applied.
-*/
-export function computeBackoff(attempt: number, opts?: { base?: number; maxBackoff?: number }): number {
- const base = opts?.base ?? 100
- const maxBackoff = opts?.maxBackoff ?? 2000
- const pow = Math.max(0, attempt - 1)
- const raw = base * Math.pow(2, pow)
- return Math.round(Math.min(raw, maxBackoff))
+ * computeBackoff(attempt, opts?)
+ *
+ * - Accepts both `baseMs` (preferred) and legacy `base` as the base delay key.
+ *   If both are provided, `baseMs` takes precedence.
+ * - base defaults to 100ms
+ * - maxBackoff defaults to 2000ms
+ * - Uses base * 2^(attempt-1) and caps by maxBackoff
+ *
+ * Returns the exponential backoff (rounded) BEFORE jitter is applied.
+ *
+ * Note: incoming `attempt` is normalized to an integer >= 1 before use.
+ */
+export function computeBackoff(
+  attempt: number,
+  opts?: { base?: number; baseMs?: number; maxBackoff?: number; maxBackoffMs?: number }
+): number {
+  // Normalize attempt to integer >= 1 so callers may pass floats or other numeric-like values.
+  const nAttempt = Math.max(1, Math.floor(attempt))
+  // Accept both `baseMs` (preferred) and legacy `base` for compatibility.
+  const base = opts?.baseMs ?? opts?.base ?? 100
+  // Accept both `maxBackoff` and `maxBackoffMs` option keys for compatibility.
+  const maxBackoff = opts?.maxBackoff ?? opts?.maxBackoffMs ?? 2000
+  const exp = Math.max(0, nAttempt - 1)
+  const raw = base * Math.pow(2, exp)
+  return Math.round(Math.min(raw, maxBackoff))
 }
 
 /**
@@ -57,42 +68,69 @@ export function computeBackoff(attempt: number, opts?: { base?: number; maxBacko
 * This deterministic behaviour is intentional so tests are stable. Tests may inject a custom randomFn.
 */
 export function deterministicJitterFactor(
- attempt: number,
- jitterMin = 0.5,
- jitterMax = 1.0,
- randomFn?: (seed: number) => number
+  attempt: number,
+  jitterMin = 0.5,
+  jitterMax = 1.0,
+  randomFn?: (seed: number) => number
 ): number {
- const r = (() => {
-   if (typeof randomFn === 'function') {
-     const v = randomFn(attempt)
-     // clamp to [0,1)
-     if (!Number.isFinite(v)) return 0
-     return Math.max(0, Math.min(0.999999999999, v))
-   }
-   // deterministic 32-bit mix using Knuth's multiplicative constant
-   const u32 = ((attempt * 2654435761) >>> 0) >>> 0
-   return u32 / 2 ** 32
- })()
+  // Normalize attempt to integer >= 1 before use so callers may supply non-integer values safely.
+  const nAttempt = Math.max(1, Math.floor(attempt))
 
- return jitterMin + r * (jitterMax - jitterMin)
+  // Normalize jitter bounds so callers may pass them in either order (min/max).
+  const min = Math.min(jitterMin, jitterMax)
+  const max = Math.max(jitterMin, jitterMax)
+
+  // Fast-path: if jitter range is degenerate (no range), return the fixed value immediately
+  // and skip any randomization or calls to randomFn.
+  if (min === max) {
+    return min
+  }
+
+  const r = (() => {
+    if (typeof randomFn === 'function') {
+      const v = randomFn(nAttempt)
+      // Clamp / fallback policy for values returned by custom randomFn:
+      // - For finite numbers: clamp into [Number.EPSILON, 1].
+      //   This prevents returning 0 (which could lead to a zero backoff) while
+      //   allowing 1.0 as an upper bound.
+      // - For non-finite values (NaN, +Infinity, -Infinity): treat as nonsensical input.
+      //   * If v > 1 (e.g. +Infinity) => fallback to 1
+      //   * Otherwise (NaN, -Infinity, negative numbers) => fallback to Number.EPSILON
+      // This documented fallback ensures deterministic, safe jitter factors for downstream backoff calculation.
+      if (!Number.isFinite(v)) {
+        return v > 1 ? 1 : Number.EPSILON
+      }
+      return Math.max(Number.EPSILON, Math.min(1, v))
+    }
+    // deterministic 32-bit mix using Knuth's multiplicative constant (use Math.imul for 32-bit deterministic multiply)
+    const u32 = (Math.imul(nAttempt, 2654435761) >>> 0)
+    return u32 / 2 ** 32
+  })()
+
+  return min + r * (max - min)
 }
 
 /**
-* retry(fn, opts)
-*
-* - Default maxAttempts = 5
-* - Default baseMs = 100
-* - Default maxBackoffMs = 2000
-* - jitterMin default 0.5, jitterMax default 1.0
-*
-* Behavior:
-* - Attempts up to maxAttempts
-* - Immediately rethrows non-retryable errors
-* - Sleeps between attempts using computeBackoff(attempt) * jitterFactor, capped to maxBackoffMs
-* - Throws the last encountered error if exhausted
-*
-* JSDoc: See spec clause C5 for retry semantics.
-*/
+ * retry(fn, opts)
+ *
+ * - Default maxAttempts = 5
+ * - Default baseMs = 100
+ * - Default maxBackoffMs = 2000
+ * - jitterMin default 0.5, jitterMax default 1.0
+ *
+ * Behavior:
+ * - Attempts up to maxAttempts
+ * - Immediately rethrows non-retryable errors
+ * - Sleeps between attempts using computeBackoff(attempt) * jitterFactor, capped to maxBackoffMs
+ *
+ * Error propagation contract:
+ * - When all permitted attempts are exhausted (i.e. we've tried `maxAttempts` times
+ *   and none succeeded), the most recent (last) encountered error is thrown.
+ * - This explicitly documents the retry contract: callers receive the final failure
+ *   reason (the last error), not an earlier one or a synthesized error.
+ *
+ * JSDoc: See spec clause C5 for retry semantics.
+ */
 export async function retry<T>(fn: () => Promise<T>, opts?: RetryOpts): Promise<T> {
  const maxAttempts = opts?.maxAttempts ?? 5
  const baseMs = opts?.baseMs ?? 100
@@ -128,12 +166,14 @@ export async function retry<T>(fn: () => Promise<T>, opts?: RetryOpts): Promise<
      const baseBackoff = computeBackoff(attempt, { base: baseMs, maxBackoff: maxBackoffMs })
      const jitterFactor = deterministicJitterFactor(attempt, jitterMin, jitterMax, randomFn)
      const sleepMs = Math.round(Math.min(baseBackoff * jitterFactor, maxBackoffMs))
-     // await between retries
+     // intentional: sequential backoff sleeps between attempts; awaiting in-loop is required
      // eslint-disable-next-line no-await-in-loop
      await sleep(sleepMs)
    }
  }
-
- // exhausted
+ 
+ // exhausted — all permitted attempts were used.
+ // When exhausted, re-throw the most recent (last) encountered error. This makes the
+ // contract explicit: callers receive the final failure reason (the last error).
  throw lastErr
 }

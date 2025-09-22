@@ -89,4 +89,53 @@ describe('retryPolicy (T041) - deterministic retry policy', () => {
     const jCustom = deterministicJitterFactor(3, 0.5, 1.0, () => 0.5)
     expect(jCustom).toBeCloseTo(0.75, 8)
   })
+
+  it('works when jitterMin > jitterMax by treating the range correctly', () => {
+    // Should behave sensibly even if caller swaps min/max; result must be within [min,max]
+    const jm = deterministicJitterFactor(1, 1.0, 0.5)
+    const lo = Math.min(1.0, 0.5)
+    const hi = Math.max(1.0, 0.5)
+    expect(jm).toBeGreaterThanOrEqual(lo)
+    expect(jm).toBeLessThanOrEqual(hi)
+  })
+
+  it('randomFn edge outputs (NaN, +Inf, -Inf, 1, 0) are clamped / fall back as documented', () => {
+    const jmNaN = deterministicJitterFactor(1, 0.5, 1.0, () => NaN)
+    const jmPosInf = deterministicJitterFactor(1, 0.5, 1.0, () => Infinity)
+    const jmNegInf = deterministicJitterFactor(1, 0.5, 1.0, () => -Infinity)
+    const jmOne = deterministicJitterFactor(1, 0.5, 1.0, () => 1)
+    const jmZero = deterministicJitterFactor(1, 0.5, 1.0, () => 0)
+
+    // Finite 1 should map to the upper bound exactly
+    expect(jmOne).toBeCloseTo(1.0, 12)
+    // +Infinity (non-finite > 1) should fallback to 1
+    expect(jmPosInf).toBeCloseTo(1.0, 12)
+
+    // NaN, -Infinity and 0 should fallback / clamp to a value slightly above jitterMin
+    ;[jmNaN, jmNegInf, jmZero].forEach((v) => {
+      expect(v).toBeGreaterThan(0.5)
+      expect(v).toBeLessThanOrEqual(1.0)
+    })
+  })
+
+  it('computeBackoff normalizes non-integer attempt values', () => {
+    // attempt 2.4 should be treated as 2 -> base * 2^(2-1) = 100 * 2 = 200
+    expect(computeBackoff(2.4, { baseMs: 100, maxBackoff: 2000 })).toBe(200)
+  })
+
+  it('computeBackoff clamps very large attempt to provided maxBackoff', () => {
+    const maxBackoff = 12345
+    expect(computeBackoff(1000, { baseMs: 100, maxBackoff })).toBe(maxBackoff)
+  })
+  
+  it('deterministicJitterFactor fast-path when jitterMin === jitterMax (randomFn must not be invoked)', () => {
+    let called = false
+    const badRandom = () => {
+      called = true
+      return 0.123
+    }
+    const fixed = deterministicJitterFactor(5, 0.7, 0.7, badRandom)
+    expect(fixed).toBe(0.7)
+    expect(called).toBe(false)
+  })
 })

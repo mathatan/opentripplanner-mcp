@@ -75,31 +75,24 @@ export class RateLimiter {
    * Do not change the external Promise<boolean> semantics of this method as
    * tests and callers depend on it.
    */
-  async take(): Promise<boolean> {
-    this.refill()
-    const availableInt = Math.floor(this.available)
-    if (availableInt >= 1) {
-      // subtract exactly one token (preserve fractional remainder)
-      this.available = this.available - 1
-      return true
-    }
-    return false
+  take(): Promise<boolean> {
+    // Non-blocking wrapper that delegates synchronous token consumption to tryAcquire()
+    return Promise.resolve<boolean>(this.tryAcquire())
   }
-
+ 
   /**
    * acquire() is an explicit, public alias of `take()` for clarity/compatibility.
-   * Preserves the same non-blocking Promise<boolean> behavior.
+   * It calls tryAcquire directly and may return either a boolean or a Promise<boolean>
+   * to preserve compatibility with both sync and async callers.
    */
-  async acquire(): Promise<boolean> {
-    return this.take()
+  acquire(): boolean | Promise<boolean> {
+    return this.tryAcquire()
   }
-
+ 
   /**
-   * tryAcquire() is a synchronous helper that attempts to refill and take a token
-   * without returning a Promise. Useful for callers that want immediate boolean
-   * results and do not want to await.
-   *
-   * Note: this mirrors the same integer-based acquisition decision used by take().
+   * tryAcquire() is the single synchronous location that performs refill and
+   * token consumption (mutating internal state). Acquisition decisions are
+   * based on the floored available token count to provide deterministic semantics.
    */
   tryAcquire(): boolean {
     this.refill()

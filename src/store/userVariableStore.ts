@@ -49,15 +49,30 @@ function toEpochMs(value: unknown): number | null {
   if (value == null) return null;
   if (typeof value === "number" && Number.isFinite(value)) return Math.floor(value);
   if (typeof value === "string") {
-    // Numeric string (only digits)
-    if (/^\d+$/.test(value)) {
-      const n = Number(value);
-      return Number.isFinite(n) ? Math.floor(n) : null;
+    // Accept trimmed numeric-strings (e.g. " 1620000000000 ") as well as ISO strings
+    const trimmed = value.trim();
+    if (trimmed.length > 0) {
+      const n = Number(trimmed);
+      if (Number.isFinite(n)) return Math.floor(n);
     }
-    const parsed = Date.parse(value);
+    const parsed = Date.parse(trimmed);
     return Number.isNaN(parsed) ? null : parsed;
   }
   return null;
+}
+
+/**
+ * Deep clone helper: prefer structuredClone when available, fall back to JSON clone.
+ * Kept minimal to avoid introducing dependencies.
+ */
+function deepClone<T>(v: T): T {
+  // @ts-expect-error structuredClone might not be declared in older TS libs
+  if (typeof (globalThis as any).structuredClone === "function") {
+    // Use global structuredClone when available for correctness and performance
+    return (globalThis as any).structuredClone(v);
+  }
+  // Fallback (note: loses functions/undefined) — acceptable for data-only store objects
+  return JSON.parse(JSON.stringify(v));
 }
 
 /**
@@ -70,13 +85,33 @@ export async function save(sessionId: string, variable: unknown): Promise<{ prev
   // Validate / transform via schema
   const parsed = UserVariableSchema.parse(variable) as UserVariable;
 
-  // Normalize timestamps
-  const createdAtMs = toEpochMs((parsed as any).createdAt) ?? Date.now();
-  const updatedAtMs = Date.now();
+  // Normalize timestamps using a single captured 'now' to keep values deterministic
+  const now = Date.now();
+  const createdAtMs = toEpochMs((parsed as any).createdAt) ?? now;
+  const updatedAtMs = now;
   const expiresAtFromParsed = toEpochMs((parsed as any).expiresAt);
-  const expiresAtMs =
-    expiresAtFromParsed ??
-    (typeof (parsed as any).ttlSeconds === "number" ? Date.now() + Math.floor((parsed as any).ttlSeconds) * 1000 : null);
+
+  // Accept ttlSeconds as number or numeric-string; prefer finite numeric values
+  const ttlCandidate = (parsed as any).ttlSeconds;
+  let ttlNum: number | null = null;
+  if (typeof ttlCandidate === "number" && Number.isFinite(ttlCandidate)) {
+    ttlNum = Math.floor(ttlCandidate);
+  } else if (typeof ttlCandidate === "string") {
+    const trimmed = ttlCandidate.trim();
+    const n = Number(trimmed);
+    if (Number.isFinite(n)) ttlNum = Math.floor(n);
+  }
+ 
+  // Semantics: treat expiresAt <= 0 as "no expiry" (non-expiring).
+  // Only positive epoch-ms values represent a real expiry time.
+  let expiresAtMs: number | null = null;
+  if (expiresAtFromParsed != null && expiresAtFromParsed > 0) {
+    expiresAtMs = expiresAtFromParsed;
+  } else if (ttlNum != null && ttlNum > 0) {
+    expiresAtMs = now + Math.floor(ttlNum) * 1000;
+  } else {
+    expiresAtMs = null;
+  }
 
   const stored: Stored = {
     ...parsed,
@@ -100,8 +135,9 @@ export async function save(sessionId: string, variable: unknown): Promise<{ prev
   // Persist new value (atomic at JS Map level: read previous then set)
   sessionMap.set(parsed.key, stored);
 
-  // Return the normalized stored variable (with epoch ms numbers)
-  return { previous: previousSummary, variable: stored };
+  // Return the normalized stored variable (with epoch ms numbers).
+  // Return deep-cloned objects to prevent external mutation of internal store.
+  return { previous: previousSummary, variable: deepClone(stored) };
 }
 
 /**
@@ -109,15 +145,16 @@ export async function save(sessionId: string, variable: unknown): Promise<{ prev
  * - Returns undefined if not found or expired (lazy purge).
  * - Always returns updatedAt as epoch ms.
  */
-export async function get(sessionId: string, key?: string): Promise<Stored | undefined> {
-  if (!key) return undefined;
+export async function get(sessionId: string, key: string): Promise<Stored | undefined> {
+  if (!key) throw new Error("key must be a non-empty string");
   const sessionMap = store.get(sessionId);
   if (!sessionMap) return undefined;
   const entry = sessionMap.get(key);
   if (!entry) return undefined;
 
   const expMs = toEpochMs((entry as any).expiresAt);
-  if (expMs != null && Date.now() >= expMs) {
+  // Treat expiresAt <= 0 as non-expiring; only positive epoch-ms values indicate real expiry.
+  if (expMs != null && expMs > 0 && Date.now() >= expMs) {
     // expired -> purge and return undefined
     sessionMap.delete(key);
     return undefined;
@@ -126,8 +163,8 @@ export async function get(sessionId: string, key?: string): Promise<Stored | und
   // Ensure updatedAt is a number (it should be, since we normalize on save)
   const updatedAtNum = toEpochMs((entry as any).updatedAt) ?? Date.now();
 
-  // Return a shallow clone to avoid accidental external mutation
-  return { ...entry, updatedAt: updatedAtNum };
+  // Return a deep clone to avoid external mutation of internal store objects
+  return deepClone({ ...entry, updatedAt: updatedAtNum });
 }
 
 /**
@@ -142,7 +179,8 @@ export async function list(sessionId: string): Promise<Stored[]> {
 
   for (const [k, v] of sessionMap.entries()) {
     const expMs = toEpochMs((v as any).expiresAt);
-    if (expMs != null && Date.now() >= expMs) {
+    // Treat expiresAt <= 0 as non-expiring; only positive epoch-ms values indicate real expiry.
+    if (expMs != null && expMs > 0 && Date.now() >= expMs) {
       sessionMap.delete(k);
       continue;
     }
@@ -155,8 +193,8 @@ export async function list(sessionId: string): Promise<Stored[]> {
     return bTs - aTs;
   });
 
-  // Return clones to avoid external mutation and ensure updatedAt numbers
-  return out.map((v) => ({ ...v, updatedAt: toEpochMs((v as any).updatedAt) ?? 0 }));
+  // Return deep-clones to avoid external mutation and ensure updatedAt numbers
+  return out.map((v) => deepClone({ ...v, updatedAt: toEpochMs((v as any).updatedAt) ?? 0 }));
 }
 
 /**
@@ -179,7 +217,7 @@ export default class UserVariableStore {
     return save(sessionId, variable);
   }
 
-  async get(sessionId: string, key?: string) {
+  async get(sessionId: string, key: string) {
     return get(sessionId, key);
   }
 

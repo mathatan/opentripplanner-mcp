@@ -133,6 +133,64 @@ describe('HttpClient (T022 minimal RED tests)', () => {
     expect(value).toBe(acceptLanguage);
   });
 
+  it('forwards Accept-Language header when passed as a Map', async () => {
+    const acceptLanguage = 'fi-FI,fi;q=0.9,en;q=0.8';
+    let capturedInit: any = undefined;
+
+    globalThis.fetch = vi.fn().mockImplementation(async (_url: string, init?: any) => {
+      capturedInit = init;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true }),
+        headers: new Map(),
+      } as any;
+    });
+
+    const client = new HttpClient();
+
+    const headersMap = new Map<string, string>([['Accept-Language', acceptLanguage]]);
+    await client.request('https://upstream.example/lang-map', {
+      method: 'GET',
+      headers: headersMap,
+    }).catch(() => {});
+
+    const value = getHeaderValue(capturedInit, 'Accept-Language');
+    expect(value).toBe(acceptLanguage);
+  });
+
+  it('forwards headers from a Headers-like object exposing entries()', async () => {
+    const headerVal = 'from-entries';
+    let capturedInit: any = undefined;
+
+    globalThis.fetch = vi.fn().mockImplementation(async (_url: string, init?: any) => {
+      capturedInit = init;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true }),
+        headers: new Map(),
+      } as any;
+    });
+
+    const client = new HttpClient();
+
+    // Minimal Headers-like object that exposes entries()
+    const headersLike = {
+      entries: function* () {
+        yield ['X-From-Entries', headerVal];
+      },
+    } as any;
+
+    await client.request('https://upstream.example/lang-entries', {
+      method: 'GET',
+      headers: headersLike,
+    }).catch(() => {});
+
+    const value = getHeaderValue(capturedInit, 'X-From-Entries');
+    expect(value).toBe(headerVal);
+  });
+
   it('throws rate-limited when rateLimiter.acquire() returns false', async () => {
     const rl = { acquire: vi.fn().mockReturnValue(false) };
     const client = new HttpClient({ rateLimiter: rl, retryOpts: { maxAttempts: 1 } });
@@ -149,6 +207,44 @@ describe('HttpClient (T022 minimal RED tests)', () => {
     const res = await client.request('https://upstream.example/mock', { mockResponse: { ok: true } });
     await expect(res.json()).resolves.toEqual({ ok: true });
     expect(rl.acquire).not.toHaveBeenCalled();
+  });
+
+  it('maps rejected rateLimiter.acquire() to upstream-error and preserves original error in meta', async () => {
+    // Simulate rateLimiter.acquire() rejecting (async throw)
+    const rl = { acquire: vi.fn().mockRejectedValue(new Error('boom')) };
+    const client = new HttpClient({ rateLimiter: rl, retryOpts: { maxAttempts: 1 } });
+
+    await expect(client.request('https://upstream.example/rl-reject')).rejects.toMatchObject({
+      code: 'upstream-error',
+      meta: { original: { message: 'boom' } },
+    });
+    expect(rl.acquire).toHaveBeenCalled();
+  });
+
+  it('accepts WHATWG Headers object and normalizes headers to plain object for fetch', async () => {
+    let capturedInit: any = undefined;
+    globalThis.fetch = vi.fn().mockImplementation(async (_url: string, init?: any) => {
+      capturedInit = init;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true }),
+        headers: new Map(),
+      } as any;
+    });
+
+    const client = new HttpClient();
+    // Use real WHATWG Headers to verify normalizeToPlainObject accepts it
+    const headers = new Headers({ 'X-Test-A': '1', 'Content-Type': 'application/json' });
+    await client.request('https://upstream.example/headers-whatwg', { method: 'POST', headers }).catch(() => {});
+
+    // normalizeToPlainObject should produce a plain object that includes the requested headers.
+    expect(capturedInit).toBeDefined();
+    const h = capturedInit.headers ?? {};
+    const valueA = h['X-Test-A'] ?? h['x-test-a'];
+    const valueCt = h['Content-Type'] ?? h['content-type'];
+    expect(valueA).toBe('1');
+    expect(valueCt).toBe('application/json');
   });
 
   it('invokes rateLimiter.acquire() on each retry attempt', async () => {
@@ -184,12 +280,74 @@ describe('HttpClient (T022 minimal RED tests)', () => {
     });
 
     const p = client.request('https://upstream.example/retry');
-
+  
     // Advance timers enough to cover the small sleeps between retries (1ms + 2ms = 3ms)
     await vi.advanceTimersByTimeAsync(10);
-
+  
     const res = await p;
     expect(res.status).toBe(200);
     expect(rl.acquire).toHaveBeenCalledTimes(3);
   });
+  
+  it('forwards headers from a Headers-like object exposing forEach()', async () => {
+    let capturedInit: any = undefined;
+    globalThis.fetch = vi.fn().mockImplementation(async (_url: string, init?: any) => {
+      capturedInit = init;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true }),
+        headers: new Map(),
+      } as any;
+    });
+  
+    const client = new HttpClient();
+  
+    // Minimal Headers-like object that exposes forEach(value, key)
+    const headersLike = {
+      forEach: (cb: (value: string, key: string) => void) => {
+        cb('foreach-value', 'X-From-ForEach');
+      },
+    } as any;
+  
+    await client.request('https://upstream.example/lang-foreach', {
+      method: 'GET',
+      headers: headersLike,
+    }).catch(() => {});
+  
+    const value = getHeaderValue(capturedInit, 'X-From-ForEach');
+    expect(value).toBe('foreach-value');
+  });
+});
+it('logs debug info for swallowed fetch rejections in non-test env', async () => {
+  const origEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'production';
+  const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+  // Mock fetch to return an immediately rejecting promise (background rejection)
+  globalThis.fetch = vi.fn().mockImplementation(() => Promise.reject(new Error('bgboom')));
+  const client = new HttpClient();
+  // Trigger request and ignore rejection to allow background handler to run
+  client.request('https://upstream.example/bg').catch(() => {});
+  // allow microtask queue to flush
+  await Promise.resolve();
+  expect(spy).toHaveBeenCalled();
+  const logged = spy.mock.calls[0] ? spy.mock.calls[0][0] : undefined;
+  expect(logged).toBeDefined();
+  expect(logged).toHaveProperty('tool', 'http-client');
+  expect(logged).toHaveProperty('event', 'unhandled-fetch-rejection');
+  spy.mockRestore();
+  process.env.NODE_ENV = origEnv;
+});
+
+it('is silent for swallowed fetch rejections in test env', async () => {
+  const origEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'test';
+  const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+  globalThis.fetch = vi.fn().mockImplementation(() => Promise.reject(new Error('bgboom')));
+  const client = new HttpClient();
+  client.request('https://upstream.example/bg-test').catch(() => {});
+  await Promise.resolve();
+  expect(spy).not.toHaveBeenCalled();
+  spy.mockRestore();
+  process.env.NODE_ENV = origEnv;
 });

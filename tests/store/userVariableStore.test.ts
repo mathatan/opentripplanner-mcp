@@ -50,6 +50,27 @@ describe("UserVariableStore - T045 user variable store", () => {
     vi.useRealTimers();
   });
 
+  it("expiresAt <= 0 treated as no-expiry", async () => {
+    vi.useFakeTimers();
+
+    const zeroIso = new Date(0).toISOString();
+    const negIso = new Date(-1000).toISOString();
+
+    // Both zero and negative epoch ISO strings should be treated as non-expiring.
+    await store.save("s-zero", { key: "keep0", value: "alive", expiresAt: zeroIso });
+    await store.save("s-zero", { key: "keepNeg", value: "alive2", expiresAt: negIso });
+
+    // Advance far beyond epoch to ensure if expiry were honored they'd be gone
+    await vi.advanceTimersByTimeAsync(1000000);
+
+    const g0 = await store.get("s-zero", "keep0");
+    const gN = await store.get("s-zero", "keepNeg");
+    expect(g0).toBeDefined();
+    expect(gN).toBeDefined();
+
+    vi.useRealTimers();
+  });
+
   it("isolation per session", async () => {
     await store.save("session-A", { key: "token", value: "A-SECRET" });
 
@@ -59,6 +80,12 @@ describe("UserVariableStore - T045 user variable store", () => {
     const fromA = await store.get("session-A", "token");
     expect(fromA).toBeDefined();
     expect(fromA).toMatchObject({ key: "token", value: "A-SECRET" });
+  });
+
+  it("get rejects falsy or empty keys", async () => {
+    // Bypass TypeScript compile-time checks by using any so runtime behavior is tested.
+    await expect((store as any).get("s-invalid", "")).rejects.toThrow(/key/i);
+    await expect((store as any).get("s-invalid")).rejects.toThrow(/key/i);
   });
 
   it("concurrent saves return previous summaries deterministically", async () => {
