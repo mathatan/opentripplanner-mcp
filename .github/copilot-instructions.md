@@ -1,75 +1,86 @@
-# Copilot Instructions for opentripplanner-mcp
+# Copilot Instructions (Concise)
 
-## Project Overview
+Refer to `.specify/memory/constitution.md` for full principles. This file is the minimal operational subset.
 
-This repository is a TypeScript/Node.js backend project for OpenTripPlanner MCP. The main source code is in `src/`, with build artifacts in `build/`. The project uses Vitest for testing and pnpm for package management.
+## 1. Essentials
 
-## Architecture & Major Components
+- Stack: TypeScript Node.js. Source in `src/`. Legacy JS in `build/` (read-only; no new code or tests there).
+- Entry: `src/index.ts`.
+- Tests (when warranted): `tests/` using Vitest. Legacy `build/index.test.js` untouched.
+- Package manager: pnpm only.
 
-- **Entry Point:** `src/index.ts` is the main entry file.
-- **Tests:**
-    - Unit tests: `tests/index.test.ts`
-    - E2E tests: `tests/index.e2e.test.ts`
-    - Legacy JS tests: `build/index.test.js`
-- **Build Output:** Compiled JS files are in `build/`.
-- **Config Files:**
-    - TypeScript: `tsconfig.json`
-    - Linting: `eslint.config.js`
-    - Vitest: `vitest.config.ts`
-    - Nodemon: `nodemon.json`
+## 2. Core Principles (Condensed)
 
-## Developer Workflows
+Implementation velocity > abstraction. Add docs with code. Tests only when contract stable, brittle logic, or critical transformation. Keep modules small, delete dead code. Add gates (tests/lint/perf) only for explicit risk.
 
-- **Install dependencies:**
-    ```sh
-    pnpm install
-    ```
-- **Run tests:**
-    ```sh
-    pnpm test
-    ```
-- **Run linter:**
-    ```sh
-    pnpm lint
-    ```
-- **Start dev server (with auto-reload):**
-    ```sh
-    pnpm dev
-    ```
-- **Build project:**
-    ```sh
-    pnpm build
-    ```
+## 3. Workflow (Follow in Order)
 
-## Patterns & Conventions
+1. Ensure/ add minimal doc or spec snippet for the change (`docs/` or `specs/`).
+2. Implement smallest vertical slice in `src/`.
+3. Update / add example or research snapshot if behavior new.
+4. Manually validate via Node or minimal script.
+5. Add targeted tests ONLY if triggers met.
+6. Refactor for clarity (no behavior drift) & keep docs in sync.
 
-- **Testing:**
-    - Use Vitest for all new tests (`*.test.ts`). Legacy JS tests are in `build/`.
-    - E2E tests are in `tests/index.e2e.test.ts`.
-- **TypeScript:**
-    - All source code should be in `src/` and use TypeScript.
-    - Avoid placing new code in `build/`.
-- **Linting:**
-    - Use the rules in `eslint.config.js`.
-- **Package Management:**
-    - Use pnpm, not npm or yarn.
+## 4. Test Triggers
 
-## Integration Points
+Write/expand tests only if:
 
-- No external service integrations are detected in the codebase structure. Check `src/index.ts` for API or service connections.
+1. External contract shape stabilized.
+2. Prior or likely brittle branching (defect or complex logic).
+3. Critical data transformation (core correctness risk).
+   If deferred: add TODO with concrete trigger (e.g., stabilization across 2 releases).
 
-## Examples
+## 5. Assistant Rules
 
-To add a new test, create `tests/yourfile.test.ts` and use Vitest syntax.
+- Always check for (or propose) doc snippet before generating sizeable new code.
+- Default answer: minimal working code + pointer to where doc must live.
+- Challenge: unused abstraction, generic layers, config flags without active use, premature caching/concurrency.
+- Prefer explicit types over speculative factories. No new source in `build/`.
+- If user asks for broad test suite without triggers: remind of triggers, offer focused example instead.
 
-- To debug, use `pnpm dev` for hot-reloading via nodemon.
+## 6. Minimal Patterns
 
-## Key Files
+- File placement: new logic → `src/`; tests → `tests/`.
+- Avoid snapshot tests until schema stable.
+- Keep error handling lean; no taxonomy unless multiple concrete callers need it.
 
-- `src/index.ts` (main logic)
-- `tests/index.test.ts`, `tests/index.e2e.test.ts` (tests)
-- `eslint.config.js`, `tsconfig.json`, `vitest.config.ts`, `nodemon.json` (configs)
+## 6a. Type Safety & Schemas
+
+- Always define explicit TypeScript interfaces/types for exported surfaces (no `any`, avoid implicit `unknown` leaks).
+- Derive Types from Zod: prefer `type Foo = z.infer<typeof fooSchema>` so runtime validation & compile-time types stay in sync.
+- Zod Usage: each tool/resource input MUST have a Zod schema; describe fields (`.describe()`) for clarity.
+- Reuse schemas: single definition per logical entity; factor shared primitives (e.g., `coordinateSchema`) instead of ad-hoc duplicates.
+- Narrow early: parse/validate at module boundaries; internal code should assume validated types—no redundant re-parse.
+- If adding a schema without immediate usage, justify (likely YAGNI—delay instead).
+- Prefer explicit discriminated unions for variant shapes rather than `| string` loosely combined types without validation.
+
+## 6b. ESLint Enforcement
+
+- Treat ESLint errors as must-fix before merging; warnings should be addressed or suppressed with rationale.
+- Do not add broad `eslint-disable` blocks; scope disables to a single line with comment explaining necessity.
+- When suggesting code, ensure it passes existing lint rules (no unused vars, prefer const, etc.). If a rule conflicts with Constitution velocity, flag it for targeted adjustment rather than blanket disable.
+
+## 7. Quick Commands
+
+```sh
+pnpm install   # deps
+pnpm dev       # dev server (nodemon)
+pnpm test      # run tests (if any)
+pnpm lint      # lint
+pnpm build     # compile
+```
+
+## 8. Response Heuristic
+
+For feature request: confirm doc → propose doc stub (if missing) → supply minimal implementation sketch → mention test deferral status.
+For refactor: assert behavior unchanged & docs remain valid.
+For test request (premature): restate triggers & offer TODO pattern.
+
+## 9. Conflict Handling
+
+If this file and Constitution disagree, Constitution wins—propose patch here.
 
 ---
 
-**Feedback:** If any section is unclear or missing, please specify what needs improvement or what additional context is required.
+Compact by design; expand only if a recurring ambiguity emerges.
