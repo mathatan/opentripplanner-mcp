@@ -37,10 +37,10 @@ Entities: LocationQueryInput, ResolvedLocation, DisambiguationSet, RouteRequestI
 
 ## Phase 3.3: Utility Layer
 
-- [ ] T015 [P] Implement deterministic sorting helpers `src/util/sorting.ts` (geocode candidates, itineraries, departures). (Depends: T014, T011, T012)
-- [ ] T016 [P] Implement hash/fingerprint helper `src/util/fingerprint.ts` (for itinerary id). (Depends: T011)
-- [ ] T017 [P] Implement language fallback helper `src/util/languageFallback.ts`. (Depends: T010)
-- [ ] T018 Implement time & clamp helpers `src/util/time.ts` (search window clamp, horizon clamp). (Depends: T011, T012)
+- [x] T015 [P] Implement deterministic sorting helpers `src/util/sorting.ts` (geocode candidates, itineraries, departures). (Depends: T014, T011, T012)
+- [x] T016 [P] Implement hash/fingerprint helper `src/util/fingerprint.ts` (for itinerary id). (Depends: T011)
+- [x] T017 [P] Implement language fallback helper `src/util/languageFallback.ts`. (Depends: T010)
+- [x] T018 Implement time & clamp helpers `src/util/time.ts` (search window clamp, horizon clamp). (Depends: T011, T012)
 
 ## Phase 3.4: Service Implementations
 
@@ -128,7 +128,7 @@ Ordering logic (selected examples; deferred backlog isolated):
 This checklist summarizes the minimal validations to perform before moving from implementation to integration/manual validation phases.
 
 - [ ] All schema tasks completed (T009–T014)
-- [ ] Deterministic ordering utilities implemented before service usage (T015)
+- [x] Deterministic ordering utilities implemented before service usage (T015)
 - [ ] Unicode normalization & language fallback integrated (T048, T017)
 - [ ] Metrics & latency instrumentation operational (T050, T051)
 - [ ] Tool handlers wired and registered in entrypoint (T025)
