@@ -28,43 +28,41 @@ Generated: 2025-09-29
 
 Entities: LocationQueryInput, ResolvedLocation, DisambiguationSet, RouteRequestInput, Itinerary, Leg, TimetableRequestInput, Departure, ErrorPayload
 
-- [ ] T009 [P] Implement `CoordinateSchema` & `LocationQueryInputSchema` in `src/schema/location.ts`. (Depends: T002)
-- [ ] T010 [P] Implement `ResolvedLocationSchema` & `DisambiguationSetSchema` in `src/schema/locationResolution.ts`. (Depends: T009)
-- [ ] T011 [P] Implement `RouteRequestInputSchema`, `LegSchema`, `ItinerarySchema` in `src/schema/route.ts`. (Depends: T009)
-- [ ] T012 [P] Implement `TimetableRequestInputSchema`, `DepartureSchema` in `src/schema/timetable.ts`. (Depends: T009)
-- [ ] T013 [P] Implement `ErrorPayloadSchema` in `src/schema/error.ts`. (Depends: T002)
-- [ ] T014 Update `src/schema/index.ts` to export all schemas & associated inferred types. (Depends: T009-T013)
+- [x] T009 [P] Implement `CoordinateSchema` & `LocationQueryInputSchema` in `src/schema/location.ts`. (Depends: T002)
+- [x] T010 [P] Implement `ResolvedLocationSchema` & `DisambiguationSetSchema` in `src/schema/locationResolution.ts`. (Depends: T009)
+- [x] T011 [P] Implement `RouteRequestInputSchema`, `LegSchema`, `ItinerarySchema` in `src/schema/route.ts`. (Depends: T009)
+- [x] T012 [P] Implement `TimetableRequestInputSchema`, `DepartureSchema` in `src/schema/timetable.ts`. (Depends: T009)
+- [x] T013 [P] Implement `ErrorPayloadSchema` in `src/schema/error.ts`. (Depends: T002)
+- [x] T014 Update `src/schema/index.ts` to export all schemas & associated inferred types. (Depends: T009-T013)
 
-## Phase 4: Utility Layer
+## Phase 3: Utility Layer
 
 - [ ] T015 [P] Implement deterministic sorting helpers `src/util/sorting.ts` (geocode candidates, itineraries, departures). (Depends: T014, T011, T012)
 - [ ] T016 [P] Implement hash/fingerprint helper `src/util/fingerprint.ts` (for itinerary id). (Depends: T011)
 - [ ] T017 [P] Implement language fallback helper `src/util/languageFallback.ts`. (Depends: T010)
 - [ ] T018 Implement time & clamp helpers `src/util/time.ts` (search window clamp, horizon clamp). (Depends: T011, T012)
 
-## Phase 5: Service Implementations
+## Phase 4: Service Implementations
 
 - [ ] T019 Implement geocoding service `src/services/lookupService.ts` (calls upstream Pelias, applies confidence normalization 0–1, uses epsilon=0.02 for distance tiebreak, enforces maxLookupCandidates/truncation & needsClarification flags, uses language fallback). (Depends: T010, T015, T017, T004, T005)
 - [ ] T020 Implement routing service `src/services/routeService.ts` (GraphQL query template, apply ordering, create itinerary ids). (Depends: T011, T016, T015, T004, T005)
 - [ ] T021 Implement timetable service `src/services/timetableService.ts` (GraphQL query for departures, apply clamps & ordering). (Depends: T012, T015, T018, T004, T005)
 
-## Phase 6: Tool Handlers (MCP Tools)
+## Phase 5: Tool Handlers (MCP Tools)
 
 - [ ] T022 Implement `findAddressOrStop` tool handler `src/tools/findAddressOrStop.ts` (validate request → call lookupService → map result/disambiguation). (Depends: T019, T010, T011, T013)
 - [ ] T023 Implement `planRoute` tool handler `src/tools/planRoute.ts` (validate request → routeService). (Depends: T020, T011, T013)
 - [ ] T024 Implement `getStopTimetable` tool handler `src/tools/getStopTimetable.ts` (validate request → timetableService). (Depends: T021, T012, T013)
 - [ ] T025 Wire tools into entrypoint `src/index.ts` (register 3 tools; integrate env validation & error mapping). (Depends: T022-T024, T003, T005)
 
-## Phase 7: Integration & Manual Validation Support
+## Phase 6: Integration & Manual Validation Support
 
 - [ ] T026 [P] Add quickstart scenario script `scripts/manual/lookup-demo.ts` (executes sample lookup). (Depends: T025)
 - [ ] T027 [P] Add route scenario script `scripts/manual/route-demo.ts`. (Depends: T023)
 - [ ] T028 [P] Add timetable scenario script `scripts/manual/timetable-demo.ts`. (Depends: T024)
 - [ ] T029 Update `quickstart.md` with actual command examples referencing new scripts. (Depends: T026-T028)
 
-## Phase 8: Polish & Documentation
-
-## Phase 9: Newly Added Coverage & Instrumentation Tasks
+## Phase 7: Newly Added Coverage & Instrumentation Tasks
 
 - [ ] T030 [P] Update `README.md` feature section summarizing tools & env var. (Depends: T025)
 - [ ] T031 [P] Add performance notes & p95 instrumentation comment in `docs/routing-api.md` or new `docs/performance.md`. (Depends: T019-T021)
@@ -72,13 +70,13 @@ Entities: LocationQueryInput, ResolvedLocation, DisambiguationSet, RouteRequestI
 - [ ] T033 Final pass: ensure all exported schemas documented with `.describe()`; update `src/schema/*`. (Depends: T014)
 - [ ] T034 Run lint & build, fix issues; update tasks status log (manual). (Depends: All prior implementation tasks)
 
-## Phase 10: Contract Tests
+## Phase 8: Contract Tests
 
 - [ ] T035 Contract test for findAddressOrStop in `tests/contract/findAddressOrStop.contract.test.ts` (execute after contract stability trigger).
 - [ ] T036 Contract test for planRoute in `tests/contract/planRoute.contract.test.ts` (execute after contract stability trigger).
 - [ ] T037 Contract test for getStopTimetable in `tests/contract/getStopTimetable.contract.test.ts` (execute after contract stability trigger).
 
-## Phase 11: Unit Tests
+## Phase 9: Unit Tests
 
 - [ ] T038 Unit tests for sorting helpers.
 - [ ] T039 Unit tests for language fallback.
@@ -86,7 +84,7 @@ Entities: LocationQueryInput, ResolvedLocation, DisambiguationSet, RouteRequestI
 - [ ] T044 Unit tests error mapping.
 - [ ] T045 Truncation test for lookup candidates.
 
-## Phase 12: Integration Tests (Optional Until Trigger)
+## Phase 10: Integration Tests (Optional Until Trigger)
 
 - [ ] T041 Integration test ambiguous lookup.
 - [ ] T042 Integration test route no results.
@@ -94,17 +92,17 @@ Entities: LocationQueryInput, ResolvedLocation, DisambiguationSet, RouteRequestI
 - [ ] T046 Itinerary truncation ordering test.
 - [ ] T047 Localization + unicode normalization integration test.
 
-## Phase 13: Unicode & Localization
+## Phase 11: Unicode & Localization
 
 - [ ] T048 Implement unicode normalization utility `src/util/unicode.ts` (NFD + remove combining marks; detect invalid code points) (FR-021). (Depends: T009)
 - [ ] T049 Integrate unicode normalization into lookup pipeline `lookupService.ts` and tool handler (preserve original, comparison only). (Depends: T019, T048)
 
-## Phase 14: Metrics & Instrumentation
+## Phase 12: Metrics & Instrumentation
 
 - [ ] T050 Implement in-memory metrics & latency module `src/infrastructure/metrics.ts` (counters + simple histogram/reservoir; export increment/observe functions) (FR-017, FR-018). (Depends: T001)
 - [ ] T051 Instrument tool handlers (findAddressOrStop, planRoute, getStopTimetable) for latency & counters (wrap handler invocation) (FR-017, FR-018). (Depends: T025, T026, T027, T050)
 
-## Phase 15: Docs & Data Freshness
+## Phase 13: Docs & Data Freshness
 
 - [ ] T052 Add data freshness statement to `README.md` and/or `docs/routing-api.md` (FR-015). (Depends: T030)
 
@@ -136,7 +134,7 @@ This checklist summarizes the minimal validations to perform before moving from 
 - [ ] Tool handlers wired and registered in entrypoint (T025)
 - [ ] Manual validation scripts runnable (T026–T028)
 - [ ] Data freshness & performance docs updated (T032, T031)
-- [ ] Backlog test tasks remain gated by activation triggers (Phase 10-15)
+- [ ] Backlog test tasks remain gated by activation triggers (Phase 8-13)
 
 ---
 Generated following `.specify/templates/tasks-template.md` rules and feature design docs.
