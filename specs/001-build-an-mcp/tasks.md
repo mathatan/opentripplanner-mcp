@@ -15,14 +15,14 @@ Generated: 2025-09-29
 
 ## Phase 1: Setup & Scaffolding
 
-- [ ] T001 Initialize feature source structure: create `src/infrastructure/`, `src/schema/`, `src/services/`, `src/tools/`, `src/util/` (no code yet). (Creates directories)
-- [ ] T002 Add base `src/schema/index.ts` exporting placeholder Zod schemas file headers (to be filled by later model tasks). (Depends: T001)
-- [ ] T003 [P] Add environment validation module `src/infrastructure/env.ts` (validate `DIGITRANSIT_API_KEY` present; throw early). (Depends: T001)
-- [ ] T004 [P] Add lightweight HTTP client wrapper `src/infrastructure/httpClient.ts` (native fetch, header injection, basic error mapping stub). (Depends: T001)
-- [ ] T005 [P] Add error taxonomy module `src/infrastructure/errorMapping.ts` (enum + factory). (Depends: T001)
-- [ ] T006 [P] Add rate limiter stub `src/infrastructure/rateLimiter.ts` (currently pass-through; TODO implement adaptive logic ONLY if ≥3 upstream 429s in rolling 60s OR upstream quota change). (Depends: T001)
-- [ ] T007 [P] Add retry policy stub `src/infrastructure/retryPolicy.ts` (exponential backoff helper; TODO enable for transient network failures once first upstream timeout observed). (Depends: T001)
-- [ ] T008 Integrate logging utility skeleton `src/infrastructure/logging.ts` (console wrapper). (Depends: T001)
+- [x] T001 Initialize feature source structure: create `src/infrastructure/`, `src/schema/`, `src/services/`, `src/tools/`, `src/util/` (no code yet). (Creates directories)
+- [x] T002 Add base `src/schema/index.ts` exporting placeholder Zod schemas file headers (to be filled by later model tasks). (Depends: T001)
+- [x] T003 [P] Add environment validation module `src/infrastructure/env.ts` (validate `DIGITRANSIT_API_KEY` present; throw early). (Depends: T001)
+- [x] T004 [P] Add lightweight HTTP client wrapper `src/infrastructure/httpClient.ts` (native fetch, header injection, basic error mapping stub). (Depends: T001)
+- [x] T005 [P] Add error taxonomy module `src/infrastructure/errorMapping.ts` (enum + factory). (Depends: T001)
+- [x] T006 [P] Add rate limiter stub `src/infrastructure/rateLimiter.ts` (currently pass-through; TODO implement adaptive logic ONLY if ≥3 upstream 429s in rolling 60s OR upstream quota change). (Depends: T001)
+- [x] T007 [P] Add retry policy stub `src/infrastructure/retryPolicy.ts` (exponential backoff helper; TODO enable for transient network failures once first upstream timeout observed). (Depends: T001)
+- [x] T008 Integrate logging utility skeleton `src/infrastructure/logging.ts` (console wrapper). (Depends: T001)
 
 ## Phase 2: Data Model Schemas (From data-model.md entities)
 
