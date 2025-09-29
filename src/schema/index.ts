@@ -1,4 +1,6 @@
-// Placeholder index exporting schema modules.
-// Full schemas will be implemented in later tasks (T009-T014).
-
-export * from "./placeholders.js";
+// Export concrete schemas for external consumers.
+export * from "./location.js";
+export * from "./locationResolution.js";
+export * from "./route.js";
+export * from "./timetable.js";
+export * from "./error.js";

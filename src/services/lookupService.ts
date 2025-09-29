@@ -1,6 +1,6 @@
 import { httpGet } from "../infrastructure/httpClient.js";
 import { createErrorPayload, ErrorCategory } from "../infrastructure/errorMapping.js";
-import { sortLocationsDeterministic, ResolvedLocation } from "../util/sorting.js";
+import { sortLocationsDeterministic } from "../util/sorting.js";
 import { pickBestName, fallbackChain } from "../util/languageFallback.js";
 
 export type LookupInput = {
@@ -25,7 +25,6 @@ export type LookupResult = {
 };
 
 const DEFAULT_MAX_CANDIDATES = 5;
-const EPSILON = 0.02; // distance tie-break threshold per spec
 
 function normalizeConfidence(v: unknown): number {
     if (typeof v === "number") {

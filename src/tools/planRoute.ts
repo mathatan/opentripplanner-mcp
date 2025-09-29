@@ -18,5 +18,6 @@ export async function planRouteTool(input: PlanInput) {
         departureTimeIso: input.departureTimeIso,
         arriveBy: input.arriveBy,
     });
+    // Return full itinerary objects (id, durationMinutes, numberOfTransfers, startTime, endTime, totalWalkDistanceMeters, legs[])
     return { itineraries: res };
 }

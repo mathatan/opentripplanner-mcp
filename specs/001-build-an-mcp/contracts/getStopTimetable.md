@@ -44,4 +44,10 @@ Chronological by scheduledTime ascending; stable secondary key routeShortName AS
 
 ## Notes
 
-- Consider including serviceDay for timezone clarity.
+- `serviceDay` is always included and paired with `(realtimeDeparture || scheduledDeparture)` from upstream to form `scheduledTime`:
+
+```ts
+scheduledTime = new Date((serviceDay + (realtimeDeparture ?? scheduledDeparture)) * 1000).toISOString();
+```
+
+- `scheduledTime` reflects realtime adjustment when available; add future field `isRealtime` if callers need to distinguish.

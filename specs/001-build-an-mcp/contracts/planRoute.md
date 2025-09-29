@@ -43,7 +43,9 @@ If no itineraries:
 
 ## Deterministic Ordering
 
-As per research: endTime ASC → numberOfTransfers ASC → durationMinutes ASC.
+Current implementation sorts itineraries primarily by durationMinutes ASC, then numberOfTransfers ASC, then startTime ASC (stable tie-break by id). This differs slightly from the earlier proposed order (endTime-first). Adjust contract or implementation later once ranking strategy is finalized.
+
+Transfers are derived from count of non-WALK legs minus one when an explicit transfers field isn't provided by upstream.
 
 ## Notes
 

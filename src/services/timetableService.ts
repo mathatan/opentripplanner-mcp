@@ -1,4 +1,4 @@
-import { httpGet } from "../infrastructure/httpClient.js";
+import { httpPost } from "../infrastructure/httpClient.js";
 import { createErrorPayload, ErrorCategory } from "../infrastructure/errorMapping.js";
 import { sortDeparturesDeterministic } from "../util/sorting.js";
 import { clampHorizonMinutes, isoNow } from "../util/time.js";
@@ -22,46 +22,87 @@ export async function getStopTimetable(req: TimetableRequest): Promise<Departure
     const max = req.maxDepartures ?? DEFAULT_MAX_DEPARTURES;
 
     const now = new Date();
-    const until = new Date(now.getTime() + horizon * 60 * 1000);
+
+    // Digitransit / OTP exposes stoptimesWithoutPatterns(startTime, timeRange, numberOfDepartures)
+    // startTime is in seconds since epoch (OTP 2.x). We'll supply now.
+    const startTimeSeconds = Math.floor(now.getTime() / 1000);
+    const timeRangeSeconds = horizon * 60; // convert minutes to seconds
 
     const query = `
-query Departures($stopId: String!, $start: String!, $end: String!) {
-  stop(id: $stopId) {
-    stoptimesForServiceDate(startTime: $start, endTime: $end) {
-      scheduledArrival
-      trip { route { shortName } }
-      headsign
+query StopTimetable($id: String!, $startTime: Long!, $timeRange: Int!, $numberOfDepartures: Int!) {
+    stop(id: $id) {
+        name
+        stoptimesWithoutPatterns(startTime: $startTime, timeRange: $timeRange, numberOfDepartures: $numberOfDepartures) {
+            serviceDay
+            scheduledDeparture
+            realtimeDeparture
+            scheduledArrival
+            headsign
+                trip { route { shortName longName mode } }
+        }
     }
-  }
-}
-`;
+}`;
 
-    const vars = {
-        stopId: req.stopId,
-        start: now.toISOString(),
-        end: until.toISOString(),
+    const variables = {
+        id: req.stopId,
+        startTime: startTimeSeconds,
+        timeRange: timeRangeSeconds,
+        numberOfDepartures: max,
     } as any;
 
-    const q = new URLSearchParams();
-    q.set("query", query);
-    q.set("variables", JSON.stringify(vars));
-    const fullUrl = `https://api.digitransit.fi/graphql?${q.toString()}`;
-
-    const res = await httpGet<any>(fullUrl);
+    const { getDigitransitApiBaseUrl } = await import("../infrastructure/env.js");
+    const url = getDigitransitApiBaseUrl();
+    const res = await httpPost<any>(url, { query, variables });
     if (res.status >= 500)
         throw createErrorPayload(ErrorCategory.UPSTREAM_FAILURE, "TIMETABLE_ERROR", "Upstream timetable error");
+    if (res.status === 401 || res.status === 403)
+        throw createErrorPayload(ErrorCategory.AUTH_FAILURE, "INVALID_API_KEY", "Invalid API key for timetable");
+    if (res.status !== 200 || res.body?.errors)
+        throw createErrorPayload(
+            ErrorCategory.UPSTREAM_FAILURE,
+            "TIMETABLE_UNAVAILABLE",
+            `Timetable endpoint returned ${res.status}: ${JSON.stringify(res.body)}`,
+        );
 
-    const entries = res.body?.data?.stop ?? { stoptimesForServiceDate: [] };
-    const times = entries?.stoptimesForServiceDate ?? [];
+    const times = res.body?.data?.stop?.stoptimesWithoutPatterns ?? [];
 
-    const departures = times.map(
-        (t: any) =>
-            ({
-                scheduledTime: t.scheduledArrival ?? isoNow(),
-                routeShortName: t?.trip?.route?.shortName,
-                headsign: t.headsign,
-            }) as DepartureSummary,
-    );
+    const toIso = (v: any): string => {
+        if (typeof v === "number") {
+            let ms = v;
+            if (ms < 1e12) ms = ms * 1000; // treat as seconds epoch
+            return new Date(ms).toISOString();
+        }
+        if (typeof v === "string") {
+            const n = Number(v);
+            if (!Number.isNaN(n)) return toIso(n);
+            return new Date(v).toISOString();
+        }
+        return isoNow();
+    };
+
+    const departures: DepartureSummary[] = times.map((t: any) => {
+        // serviceDay is epoch seconds at local midnight; scheduledDeparture is seconds offset; realtimeDeparture may differ
+        const sd = typeof t.serviceDay === "number" ? t.serviceDay : undefined;
+        const dep = typeof t.realtimeDeparture === "number" ? t.realtimeDeparture : t.scheduledDeparture;
+        let absIso: string;
+        if (sd != null && typeof dep === "number") {
+            absIso = new Date((sd + dep) * 1000).toISOString();
+        } else if (typeof dep === "number") {
+            absIso = toIso(dep);
+        } else if (t.scheduledArrival) {
+            absIso = toIso(t.scheduledArrival);
+        } else {
+            absIso = isoNow();
+        }
+        return {
+            scheduledTime: absIso,
+            routeShortName: t?.trip?.route?.shortName,
+            routeLongName: t?.trip?.route?.longName,
+            headsign: t?.headsign,
+            mode: t?.trip?.route?.mode,
+            serviceDay: sd != null ? new Date(sd * 1000).toISOString().slice(0, 10) : absIso.slice(0, 10),
+        } as DepartureSummary;
+    });
 
     departures.sort(sortDeparturesDeterministic as any);
     return departures.slice(0, max);

@@ -11,6 +11,10 @@
         "run": "pnpm build && node build/index.js",
         "prepublishOnly": "pnpm build",
         "dev": "nodemon --exec tsx src/index.ts",
+        "demo:lookup": "tsx scripts/manual/lookup-demo.ts",
+        "demo:route": "tsx scripts/manual/route-demo.ts",
+        "demo:timetable": "tsx scripts/manual/timetable-demo.ts",
+        "check-auth": "tsx scripts/manual/check-auth.ts",
         "test": "vitest run",
         "lint": "eslint src --ext .ts",
         "format": "prettier --write src"

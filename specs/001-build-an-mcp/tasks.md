@@ -57,10 +57,10 @@ Entities: LocationQueryInput, ResolvedLocation, DisambiguationSet, RouteRequestI
 
 ## Phase 3.6: Integration & Manual Validation Support
 
-- [ ] T026 [P] Add quickstart scenario script `scripts/manual/lookup-demo.ts` (executes sample lookup). (Depends: T025)
-- [ ] T027 [P] Add route scenario script `scripts/manual/route-demo.ts`. (Depends: T023)
-- [ ] T028 [P] Add timetable scenario script `scripts/manual/timetable-demo.ts`. (Depends: T024)
-- [ ] T029 Update `quickstart.md` with actual command examples referencing new scripts. (Depends: T026-T028)
+- [x] T026 [P] Add quickstart scenario script `scripts/manual/lookup-demo.ts` (executes sample lookup). (Depends: T025)
+- [x] T027 [P] Add route scenario script `scripts/manual/route-demo.ts`. (Depends: T023)
+- [x] T028 [P] Add timetable scenario script `scripts/manual/timetable-demo.ts`. (Depends: T024)
+- [x] T029 Update `quickstart.md` with actual command examples referencing new scripts. (Depends: T026-T028)
 
 ## Phase 3.7: Newly Added Coverage & Instrumentation Tasks
 

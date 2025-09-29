@@ -24,6 +24,17 @@ otpTopicsReferenced:
 
 The Routing API provides public transport, shared mobility, and real-time itinerary planning via a GraphQL endpoint. It supports multi-modal routing, real-time updates, and advanced filtering. Authentication is via API key in the HTTP header. Rate limits and complexity constraints apply. All endpoints and schema details are sourced from Digitransit and OpenTripPlanner documentation.
 
+## Valid end-points
+
+The routing API for Helsinki region is available at:
+<https://api.digitransit.fi/routing/v2/hsl/gtfs/v1>
+The routing API for Waltti regions is available at:
+<https://api.digitransit.fi/routing/v2/waltti/gtfs/v1>
+The routing API for Finland and Estonia is available at:
+<https://api.digitransit.fi/routing/v2/finland/gtfs/v1>
+The routing API for Varsinais-Suomen (Southwest Finland) ELY is available at:
+<https://api.digitransit.fi/routing/v2/varely/gtfs/v1>
+
 ## Parameters
 
 | Name | Type | Default | Since | Source | Description |

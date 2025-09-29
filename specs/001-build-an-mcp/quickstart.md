@@ -163,3 +163,15 @@ Primary name fallback: Finnish → English → Swedish → upstream default. Add
 
 ---
 Aligned with Constitution Principles: lean approach, docs precede code, minimal dependencies.
+
+## 15. Run demo scripts (local manual validation)
+
+After installing dependencies and setting `DIGITRANSIT_API_KEY` in your environment, you can execute small demo scripts that call the tool handlers directly (useful for manual validation without running the MCP stdio server):
+
+```
+pnpm demo:lookup        # runs scripts/manual/lookup-demo.ts (optional arg: search text)
+pnpm demo:route         # runs scripts/manual/route-demo.ts
+pnpm demo:timetable     # runs scripts/manual/timetable-demo.ts (optional arg: stopId)
+```
+
+These scripts will print JSON to stdout. They import existing tool handlers under `src/tools/*` and exercise core flows.

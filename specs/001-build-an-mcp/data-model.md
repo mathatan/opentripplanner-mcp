@@ -203,3 +203,13 @@ export const ErrorPayloadSchema = z.object({
 - Some schemas (RouteRequestInput) rely on `.datetime()` which expects RFC 3339; if broader ISO 8601 needed, adjust with regex.
 - Stable hashing for itinerary `id` may use a canonical JSON of legs + times hashed via SHA-256 (implementation detail not in contract).
 - Future additions: micro-cache metadata wrapper schema (Deferred).
+
+### Realtime & Absolute Time Construction (Clarification)
+
+Upstream timetable fields `serviceDay` (epoch seconds at local midnight) and `scheduledDeparture` / `realtimeDeparture` (seconds offset from serviceDay) are combined into absolute instants:
+
+```ts
+absoluteDeparture = new Date((serviceDay + (realtimeDeparture || scheduledDeparture)) * 1000).toISOString()
+```
+
+`scheduledTime` in the `Departure` entity reflects the realtime-corrected instant when available; fallback is scheduled. `serviceDay` is preserved separately (ISO date) to allow clients to compute alternative representations or handle cross-midnight logic.
