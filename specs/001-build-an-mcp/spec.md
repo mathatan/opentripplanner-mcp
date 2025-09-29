@@ -88,8 +88,8 @@ As an AI assistant interacting with transport data, I need to (a) resolve user�
 - **FR-004 Route Planning**: System MUST create itineraries between a resolved origin and destination given either a desired departure time or a desired arrival time (both fully supported) plus a search window, returning zero or more itineraries with standardized fields (duration, legs count, transfers count, start/end times, modes sequence, walking distance, list of leg summaries). Arrival-time searches MUST back-calculate suitable departure times honoring window bounds. Mode control limited to journeyPreset enum (FASTEST | FEWEST_TRANSFERS | LEAST_WALK) in v1 (no raw mode filters).
 - **FR-005 Time Window Handling**: System MUST limit route planning search to a bounded window: default searchWindowMinutes = 45; maximum allowed = 120. Requests above max MUST be clamped with a warning flag.
 - **FR-006 No Route Case**: If no itineraries found within window, System MUST return an empty itinerary set plus a structured reason code (e.g., NO_SERVICE, OUT_OF_BOUNDS, INVALID_TIME).
-- **FR-007 Timetable Retrieval**: System MUST return next N scheduled departures for a resolved stop identifier, with each departure containing route short/long name, destination/headsign, scheduled departure time (ISO 8601), mode, and service day reference. Defaults: default departures N = 3, maximum N = 5. Horizon: default horizonMinutes = 45, maximum horizonMinutes = 90; requests exceeding limits MUST be clamped and include a clamped=true flag.
-- **FR-008 Empty Timetable Case**: If zero departures in horizon (configurable minutes ahead), return empty list + reason code NO_DEPARTURES.
+- **FR-007 Timetable Retrieval (includes Empty Case)**: System MUST return next N scheduled departures for a resolved stop identifier, with each departure containing route short/long name, destination/headsign, scheduled departure time (ISO 8601), mode, and service day reference. Defaults: default departures N = 3, maximum N = 5. Horizon: default horizonMinutes = 45, maximum horizonMinutes = 90; requests exceeding limits MUST be clamped and include a clamped=true flag. If zero departures exist within the (possibly clamped) horizon, the system MUST return an empty list with reason code NO_DEPARTURES (former FR-008 merged for clarity; numbering of later FRs retained for stability).
+- **FR-008 (Merged)**: (Intentionally merged into FR-007; retained as placeholder to preserve downstream references.)
 - **FR-009 Input Validation**: System MUST detect and respond with structured validation errors for missing origin/destination, invalid time formats, or impossible coordinate values (lat/lon).
 - **FR-010 Disambiguation Signaling**: System MUST include a flag (e.g., needsClarification=true) and truncated indicator when candidate list shortened due to cap.
 - **FR-011 Rate Limiting (Product)**: Initial scope: no proactive internal throttling; rely solely on upstream Digitransit limits. On upstream HTTP 429 responses, map to THROTTLED error including retryAfter (use upstream header if present else default 60). Internal adaptive limiting marked Deferred.
@@ -102,18 +102,18 @@ As an AI assistant interacting with transport data, I need to (a) resolve user�
 - **FR-018 Performance**: Under normal load (no upstream degradation) system SHOULD meet: p95 latency < 1500ms and p99 latency < 3000ms for successful (HTTP 2xx) address/stop lookups, timetable retrievals, and route planning requests. Measurement excludes cold start of process (>60s idle) and excludes time spent waiting on explicit retry-after from THROTTLED responses. Latency is wall‑clock from request receipt to structured response emission.
 - **FR-019 Pagination / Limits**: System MUST cap maximum lookup candidates and itineraries returned to prevent overload. Caps: maxLookupCandidates=5, maxItineraries=3. If raw lookup candidates >5, truncate deterministically preserving rank and set truncated=true. If upstream yields >3 itineraries, retain top 3 using sort priority: earliest arrivalTime ASC, then transfers ASC, then total duration ASC.
 - **FR-020 Privacy**: System MUST not persist user queries beyond transient processing unless explicit requirement emerges (none currently).
-- **FR-021 Unicode Handling**: System MUST preserve original user input (including diacritics / non‑ASCII characters) in transient processing context, perform accent‑insensitive matching using a stable normalization form (e.g., Unicode NFD strip combining marks for comparison only), and return resolved names using upstream canonical forms (do not strip diacritics in output). If normalization fails (invalid code points), return VALIDATION error with details.invalidCharacters list.
+- **FR-021 Unicode Handling**: System MUST preserve original user input (including diacritics / non‑ASCII characters) in transient processing context, perform accent‑insensitive matching using a stable normalization form (Unicode NFD followed by removal of combining marks `\p{Mn}` for comparison ONLY), and return resolved names using upstream canonical forms (do not strip diacritics in output). If normalization fails (invalid code points), return VALIDATION error with details.invalidCharacters list. Internal comparison MUST NOT mutate or cache a modified user string; normalization artifacts are ephemeral.
 
-Ambiguity markers intentionally retained pending clarification.
+All ambiguity markers have been resolved; remaining algorithmic specifics are intentionally scoped (see Scoring & Determinism Notes).
 
 ### Key Entities *(include if feature involves data)*
 
 - **LocationQuery**: Represents the original free‑text input (and optional bias coordinate) used to resolve an address or stop; attributes: rawText, optional focus (lat, lon), timestamp.
   - Clarified: focus now defined as optional structure: focusPoint(lat, lon) + optional maxDistanceMeters (integer >0). If maxDistanceMeters supplied without focusPoint → VALIDATION error.
 - **ResolvedLocation**: A normalized location outcome; attributes: id (if stop), name, type (ADDRESS|STOP), coordinate, confidenceScore, locality (city / region), rawQueryReference.
-- **DisambiguationSet**: Ranked collection of candidate ResolvedLocation objects plus metadata: totalCandidatesFound, candidatesReturned, truncated(boolean), needsClarification(boolean).
+- **DisambiguationSet**: Ranked collection of candidate ResolvedLocation objects plus metadata: totalCandidatesFound, candidatesReturned, truncated(boolean), needsClarification(boolean). Confidence scores are normalized to a 0.0–1.0 scale (see notes below) and threshold comparison uses >= 0.80.
 - **RouteRequest**: Origin + Destination (ResolvedLocation or coordinate), temporal constraint (departureTime OR arrivalTime — both accepted), searchWindowMinutes, journeyPreset (FASTEST | FEWEST_TRANSFERS | LEAST_WALK). No raw mode include/exclude lists in v1.
-- **Itinerary**: durationMinutes, startTime, endTime, numberOfTransfers, totalWalkDistanceMeters, legs[] (each leg: mode, lineName/number if transit, from, to, departureTime, arrivalTime, headsign, distanceMeters).
+- **Itinerary**: durationMinutes (integer), startTime (ISO 8601), endTime (ISO 8601), numberOfTransfers (integer), totalWalkDistanceMeters (integer, sum of WALK legs only), legs[] (each leg: mode, lineName/number if transit, from, to, departureTime, arrivalTime, headsign, distanceMeters for THAT leg only). Legs MUST include distanceMeters for every leg (walk, transit, other) to enable deterministic summary hashing.
 - **TimetableRequest**: stopId (or resolved stop), horizonMinutes (default 45, max 90), maxDepartures (default 3, max 5).
 - **Departure**: scheduledTime, routeShortName, routeLongName (optional), headsign, mode, serviceDay.
 - **ErrorPayload**: code (enum), category, message (human), details (key-value), recommendation (optional follow‑up hint for assistant).
@@ -138,6 +138,44 @@ Relationships: RouteRequest produces zero or more Itineraries; TimetableRequest 
 - Q: What level of transit mode filtering is supported initially? → A: High-level journeyPreset enum only (Option D)
 - Q: Should caller be able to supply a proximity bias & how? → A: Optional (lat, lon) + maxDistanceMeters filter; ranking primarily textual with distance only as tiebreaker (Option A)
 - Q: How should non‑ASCII characters be handled in lookup? → A: Preserve original; accent‑insensitive matching (Option A)
+
+## Scoring & Determinism Notes
+
+Confidence Score Source & Scale:
+
+- If upstream geocoder provides a confidence metric already expressed 0.0–1.0: use directly.
+- If upstream provides alternative scoring, normalize via min-max across returned set; if single candidate only, assign 1.0.
+- Auto-resolve threshold: 0.80 (>= applies FR-003 single result contract).
+
+Ranking Tie-Break (Lookup Candidates):
+
+1. Primary: textual score DESC
+2. Secondary (applied only if |scoreA - scoreB| < epsilon): distance ASC (meters)
+3. Tertiary: canonical name case-insensitive ASC (locale-insensitive)
+4. Quaternary: stable hash of id|name (ensures deterministic ordering)
+
+Epsilon for “textual scores within small epsilon”: 0.02.
+
+Itinerary Ordering (FR-013 refinement): arrivalTime ASC, then numberOfTransfers ASC, then durationMinutes ASC, then itineraryId (stable fingerprint) ASC.
+
+Metrics (FR-017) Counters (in-memory, reset on process restart):
+
+- lookups.success
+- lookups.disambiguation
+- itineraries.produced (count of itineraries returned, aggregated)
+- timetable.empty
+- errors.byCategory.<CATEGORY>
+- latency.observe(feature, ms) feeds percentile calculator (in-memory reservoir or simple histogram buckets)
+
+Latency Measurement (FR-018): wrap each tool handler end-to-end capturing wall-clock ms; compute p95/p99 every N=100 samples or on demand. No persistence required.
+
+Internal Rate Limiting Trigger (FR-011 deferred): Only implement adaptive limiter if ≥3 upstream 429 responses occur within any rolling 60s window OR a documented upstream quota change mandates local smoothing. Until then the rateLimiter module remains a pass-through with TODO referencing this trigger.
+
+Unicode Normalization (FR-021): Use `String.prototype.normalize('NFD')` followed by removal of combining marks via `/\p{Mn}+/gu` for comparison tokens. Reject strings containing isolated surrogates or code points failing UTF-16 to Unicode scalar conversion.
+
+Truncation Flags (FR-019): When candidates > maxLookupCandidates (5) or itineraries > maxItineraries (3), set truncated=true and always preserve original rank ordering prior to slice.
+
+These notes are normative where they tighten earlier FR language; otherwise they serve as implementation guidance.
 
 ## Review & Acceptance Checklist
 

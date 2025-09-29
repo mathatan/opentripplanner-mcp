@@ -44,11 +44,11 @@ Deliver an MCP (Model Context Protocol) server providing three core transport da
 **Testing**: Vitest (targeted contract tests later; early phases may rely on manual validation per Constitution Principle 2)
 **Target Platform**: Headless MCP server process (CLI / Node service)
 **Project Type**: Single backend service (monorepo single project). No frontend.
-**Performance Goals**: p95 < 1500ms, p99 < 3000ms for lookup/route/timetable (from spec FR-018)
-**Constraints**: Max lookup candidates 5, max itineraries 3, timetable departures 5, searchWindow clamp 120 min, timetable horizon clamp 90 min. Deterministic ordering, Finnish→English→Swedish name fallback.
+**Performance Goals**: p95 < 1500ms, p99 < 3000ms for lookup/route/timetable (from spec FR-018); in-memory percentile calculation every 100 samples.
+**Constraints**: Max lookup candidates 5, max itineraries 3, timetable departures 5, searchWindow clamp 120 min, timetable horizon clamp 90 min. Deterministic ordering (explicit tie-break chain defined in spec Scoring & Determinism Notes), Finnish→English→Swedish name fallback.
 **Scale/Scope**: Initial Finland-only coverage; moderate request volume bounded by Digitransit limits (documented ~10 rps pragmatic guidance).
 
-Uncertainties: None blocking (all clarifications present in spec). No NEEDS CLARIFICATION markers remain in final functional scope.
+Uncertainties: None blocking. All prior ambiguity markers resolved; remaining algorithmic guidance now explicitly documented in spec (confidence normalization, epsilon=0.02, itinerary tie-break, rate limiting trigger, unicode normalization procedure, metrics counters).
 
 ## Constitution Check
 
@@ -58,7 +58,7 @@ Principles Assessment:
 2. Iterative Hardening – Tests deferred except minimal schema validation; quickstart examples will act as manual verification seeds.
 3. Documentation-As-Source-of-Truth – Spec + this plan + forthcoming `research.md`, `data-model.md`, `contracts/*`, `quickstart.md` will precede substantial coding changes.
 4. Lean, Readable Code – Proposed structure keeps files focused (one concern per file). No speculative layers.
-5. Progressive Quality Gates – Performance and error metrics instrumentation planned as lightweight counters only; no heavy observability stack.
+5. Progressive Quality Gates – Performance and error metrics instrumentation planned as lightweight counters only (added metrics & latency instrumentation tasks); no heavy observability stack until trigger conditions (e.g., need for persistence) arise.
 
 Result: PASS (no violations). Complexity Tracking remains empty.
 
@@ -80,7 +80,7 @@ specs/001-build-an-mcp/
 
 ```
 src/
-├── infrastructure/        # HTTP clients, rate limiting wrapper, caching
+├── infrastructure/        # HTTP clients, (deferred) adaptive rate limiting wrapper, caching, retry helper
 ├── schema/                # Zod schemas & types (location, route, timetable, errors)
 ├── services/              # Domain services: lookupService, routeService, timetableService
 ├── tools/                 # MCP tool handler implementations
@@ -177,7 +177,7 @@ tests/ (incremental; may remain sparse early)
 
 *These phases are beyond the scope of the /plan command*
 
-**Phase 3**: Task execution (/tasks command creates tasks.md)
+**Phase 3**: Task execution (/tasks command creates tasks.md) including newly added metrics, unicode normalization, and truncation test tasks.
 **Phase 4**: Implementation (execute tasks.md following constitutional principles)
 **Phase 5**: Validation (run tests, execute quickstart.md, performance validation)
 
