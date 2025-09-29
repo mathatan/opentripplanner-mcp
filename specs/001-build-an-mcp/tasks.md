@@ -44,16 +44,16 @@ Entities: LocationQueryInput, ResolvedLocation, DisambiguationSet, RouteRequestI
 
 ## Phase 3.4: Service Implementations
 
-- [ ] T019 Implement geocoding service `src/services/lookupService.ts` (calls upstream Pelias, applies confidence normalization 0–1, uses epsilon=0.02 for distance tiebreak, enforces maxLookupCandidates/truncation & needsClarification flags, uses language fallback). (Depends: T010, T015, T017, T004, T005)
-- [ ] T020 Implement routing service `src/services/routeService.ts` (GraphQL query template, apply ordering, create itinerary ids). (Depends: T011, T016, T015, T004, T005)
-- [ ] T021 Implement timetable service `src/services/timetableService.ts` (GraphQL query for departures, apply clamps & ordering). (Depends: T012, T015, T018, T004, T005)
+- [x] T019 Implement geocoding service `src/services/lookupService.ts` (calls upstream Pelias, applies confidence normalization 0–1, uses epsilon=0.02 for distance tiebreak, enforces maxLookupCandidates/truncation & needsClarification flags, uses language fallback). (Depends: T010, T015, T017, T004, T005)
+- [x] T020 Implement routing service `src/services/routeService.ts` (GraphQL query template, apply ordering, create itinerary ids). (Depends: T011, T016, T015, T004, T005)
+- [x] T021 Implement timetable service `src/services/timetableService.ts` (GraphQL query for departures, apply clamps & ordering). (Depends: T012, T015, T018, T004, T005)
 
 ## Phase 3.5: Tool Handlers (MCP Tools)
 
-- [ ] T022 Implement `findAddressOrStop` tool handler `src/tools/findAddressOrStop.ts` (validate request → call lookupService → map result/disambiguation). (Depends: T019, T010, T011, T013)
-- [ ] T023 Implement `planRoute` tool handler `src/tools/planRoute.ts` (validate request → routeService). (Depends: T020, T011, T013)
-- [ ] T024 Implement `getStopTimetable` tool handler `src/tools/getStopTimetable.ts` (validate request → timetableService). (Depends: T021, T012, T013)
-- [ ] T025 Wire tools into entrypoint `src/index.ts` (register 3 tools; integrate env validation & error mapping). (Depends: T022-T024, T003, T005)
+- [x] T022 Implement `findAddressOrStop` tool handler `src/tools/findAddressOrStop.ts` (validate request → call lookupService → map result/disambiguation). (Depends: T019, T010, T011, T013)
+- [x] T023 Implement `planRoute` tool handler `src/tools/planRoute.ts` (validate request → routeService). (Depends: T020, T011, T013)
+- [x] T024 Implement `getStopTimetable` tool handler `src/tools/getStopTimetable.ts` (validate request → timetableService). (Depends: T021, T012, T013)
+- [x] T025 Wire tools into entrypoint `src/index.ts` (register 3 tools; integrate env validation & error mapping). (Depends: T022-T024, T003, T005)
 
 ## Phase 3.6: Integration & Manual Validation Support
 
@@ -131,7 +131,7 @@ This checklist summarizes the minimal validations to perform before moving from 
 - [x] Deterministic ordering utilities implemented before service usage (T015)
 - [ ] Unicode normalization & language fallback integrated (T048, T017)
 - [ ] Metrics & latency instrumentation operational (T050, T051)
-- [ ] Tool handlers wired and registered in entrypoint (T025)
+- [x] Tool handlers wired and registered in entrypoint (T025)
 - [ ] Manual validation scripts runnable (T026–T028)
 - [ ] Data freshness & performance docs updated (T032, T031)
 - [ ] Backlog test tasks remain gated by activation triggers (Phase 3.8-3.13)
