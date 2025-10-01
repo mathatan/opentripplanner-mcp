@@ -1,3 +1,6 @@
+# NOTE: THIS REPOSITORY IS AVAILABLE FOR REFERENCE - IT IS NOT YET FUNCTIONAL #
+
+
 # OpenTripPlanner MCP Server
 
 A Model Context Protocol (MCP) server that provides comprehensive public transit trip planning and stop timetable services. This project serves as a bridge between AI assistants and public transportation data, enabling intelligent routing, real-time updates, and multimodal journey planning.
