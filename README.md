@@ -112,6 +112,19 @@ pnpm test
 
 The project uses Vitest for testing with comprehensive coverage requirements for all MCP tools.
 
+### Testing (Lookup Service)
+
+- Full suite: `pnpm test`
+- Watch mode: `pnpm test:watch`
+- Coverage: `pnpm test:coverage`
+- Detailed strategy and guides:
+  - [Overview & strategy](docs/testing/lookup/overview.md)
+  - [Scenario catalog](docs/testing/lookup/scenarios.md)
+  - [Fixtures & mocking](docs/testing/lookup/fixtures-and-mocking.md)
+- Legacy long-form document condensed on 2025-10-07; see summary at [testing-lookupService.md](docs/testing-lookupService.md:1).
+- Coverage focus: lookup service functional tests — deterministic sorting, language fallback, distance filtering, error mapping
+- Mocking boundary: only `httpGet` is mocked; tests assert deterministic ordering guarantee
+
 ## 📦 Building
 
 Build the project for production:
